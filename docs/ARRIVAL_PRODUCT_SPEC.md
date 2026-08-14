@@ -1,8 +1,8 @@
 # Arrival Product Specification
 
-**Version:** 0.2  
+**Version:** 0.3  
 **Status:** Pre-development  
-**Last updated:** 2026-07-28  
+**Last updated:** 2026-08-13  
 **Authority:** This document is the canonical product specification for Arrival. It overrides older notes, chat summaries, prototypes, and coding prompts when they conflict.
 
 ## 0. How to use this document
@@ -94,9 +94,11 @@ The MVP is successful when it proves user value and produces behavioral evidence
 
 As of this version:
 
-- Arrival exists as product research and specifications only.
-- No codebase, frontend, database, repository, integration, or deployment exists.
-- The first GitHub repository will become the canonical codebase.
+- The GitHub repository is the canonical codebase.
+- A Next.js 16 application foundation exists with TypeScript, Tailwind CSS v4, ESLint, and Vitest.
+- The repository contains a minimal placeholder landing screen confirming the app is running. No substantive Arrival product interface has been built.
+- Lint, tests, and the production build pass.
+- No database, authentication, retailer product data, recommendation system, checkout integration, or deployment exists yet.
 
 ---
 
@@ -967,6 +969,7 @@ This section does not prohibit the controlled, scheduled collection of public pr
 | 2026-07-28 | Treat agentic one-confirmation purchasing and retailer affiliate partnerships as future pitch north stars. | Both can strengthen the mature product but are not dependable MVP requirements. | Present-tense one-click and affiliate claims |
 | 2026-07-28 | Use one GitHub repository with specialized services around one application. | Prevents competing app versions and lets UI, data, extraction, and checkout systems coexist. | Independent v0/Replit versions |
 | 2026-07-28 | Begin from the specification, not from an assumed existing prototype. | Arrival has not yet been coded in any form. | References to preserving an existing v0 implementation |
+| 2026-08-13 | Establish the canonical Next.js 16 foundation in the GitHub repository. | Milestone 0 requires a single source of truth with documented conventions before product interfaces are built. App Router, TypeScript, Tailwind CSS v4, ESLint, and Vitest are confirmed. Lint, tests, and production build pass. | N/A |
 | 2026-07-28 | Treat the Wishbone completion message as friendly flexible copy, not a required phrase. | Preserves the intended tone without hard-coding an early copy idea into the product contract. | Requiring the exact phrase “perfect! you’re all set” |
 | 2026-07-28 | Source MVP product records and photos through controlled collection of selected multibrand retailers' public listings and public APIs. | Makes the real-catalog pipeline implementable and clarifies that only live, indiscriminate, or access-control-bypassing extraction is excluded. | Treating all scraping or public-listing image collection as out of scope |
 
