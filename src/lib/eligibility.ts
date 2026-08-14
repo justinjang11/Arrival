@@ -152,14 +152,18 @@ export function allItemsArriveBy(
  * the outfit is ineligible.
  *
  * Constraints checked (in order):
- *   1. All selected variants are available — MVP-OUT-001
- *   2. Merchandise subtotal ≤ budget — §4.1, UNR-004 temporary assumption
- *   3. Every item arrives by the need-by date — §4.2
+ *   0. Outfit must contain at least one item.
+ *   1. Every OutfitItem.variantId must exist in variantMap and its
+ *      variant.productId must match the OutfitItem.productId.
+ *      Out-of-stock variants are a separate availability failure.
+ *   2. All selected variants must be available (not out_of_stock) — MVP-OUT-001
+ *   3. Merchandise subtotal ≤ budget — §4.1, UNR-004 temporary assumption
+ *   4. Every item arrives by the need-by date — §4.2
  *
- * Precondition: variantMap must contain an entry for every variantId
- * referenced by outfit.items. Missing variants are treated as unavailable in
- * the availability check; subtotal and delivery checks will throw if any
- * variant is missing.
+ * Budget and delivery checks (3 & 4) only run when all variants are
+ * resolvable (check 1 passes). Out-of-stock variants are resolvable — they
+ * still have known prices and delivery dates — so checks 3 & 4 always run
+ * alongside check 2 when no data-integrity problems exist.
  */
 export function checkEligibility(
   outfit: Outfit,
@@ -168,24 +172,53 @@ export function checkEligibility(
 ): EligibilityResult {
   const reasons: string[] = [];
 
-  // --- 1. Availability ---
-  const unavailableItems = outfit.items.filter((item) => {
-    const variant = variantMap.get(item.variantId);
-    return !variant || variant.availability === "out_of_stock";
-  });
-  if (unavailableItems.length > 0) {
-    const ids = unavailableItems.map((i) => i.variantId).join(", ");
-    reasons.push(`One or more selected variants are unavailable: ${ids}`);
+  // --- 0. Empty outfit ---
+  if (outfit.items.length === 0) {
+    return {
+      eligible: false,
+      reasons: [
+        "Outfit contains no items. The specification does not define a fixed " +
+          "item template; add the appropriate items for the occasion before " +
+          "checking eligibility.",
+      ],
+    };
   }
 
-  // Only run subtotal and delivery checks when all variants are resolvable
-  // (missing variants are already captured above).
-  const allResolvable = outfit.items.every((item) =>
-    variantMap.has(item.variantId)
-  );
+  // --- 1. Item integrity: variant existence and productId/variantId consistency ---
+  const integrityFailures: string[] = [];
+  const outOfStockIds: string[] = [];
 
-  if (allResolvable) {
-    // --- 2. Budget (TEMPORARY ASSUMPTION: merchandise subtotal only — UNR-004) ---
+  for (const item of outfit.items) {
+    const variant = variantMap.get(item.variantId);
+    if (!variant) {
+      integrityFailures.push(
+        `Variant "${item.variantId}" was not found in the catalog.`
+      );
+    } else if (variant.productId !== item.productId) {
+      integrityFailures.push(
+        `Variant "${item.variantId}" belongs to product "${variant.productId}", ` +
+          `not "${item.productId}".`
+      );
+    } else if (variant.availability === "out_of_stock") {
+      outOfStockIds.push(item.variantId);
+    }
+  }
+
+  if (integrityFailures.length > 0) {
+    reasons.push(...integrityFailures);
+  }
+
+  // --- 2. Availability (business rule — separate from integrity) ---
+  if (outOfStockIds.length > 0) {
+    reasons.push(
+      `One or more selected variants are unavailable: ${outOfStockIds.join(", ")}`
+    );
+  }
+
+  // Budget and delivery checks require all variants to be resolvable.
+  // Out-of-stock variants are still resolvable (price and delivery are known).
+  if (integrityFailures.length === 0) {
+    // --- 3. Budget (TEMPORARY ASSUMPTION: merchandise subtotal only — UNR-004) ---
     const subtotalCents = calculateSubtotalCents(outfit.items, variantMap);
     if (isBudgetExceeded(subtotalCents, request.budgetCents)) {
       const subtotalStr = (subtotalCents / 100).toFixed(2);
@@ -196,7 +229,7 @@ export function checkEligibility(
       );
     }
 
-    // --- 3. Delivery deadline (§4.2) ---
+    // --- 4. Delivery deadline (§4.2) ---
     const latest = latestDeliveryDate(outfit.items, variantMap);
     if (!allItemsArriveBy(latest, request.needByDate)) {
       reasons.push(

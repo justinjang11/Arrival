@@ -219,6 +219,24 @@ describe("checkEligibility — valid outfit", () => {
 });
 
 // ---------------------------------------------------------------------------
+// checkEligibility — empty outfit
+// ---------------------------------------------------------------------------
+
+describe("checkEligibility — empty outfit", () => {
+  it("returns ineligible with a clear reason when the outfit has no items", () => {
+    const emptyOutfit: Outfit = {
+      id: "outfit-empty",
+      requestId: "req-valid",
+      items: [],
+    };
+    const result = checkEligibility(emptyOutfit, VALID_REQUEST, SAMPLE_VARIANT_MAP);
+    expect(result.eligible).toBe(false);
+    expect(result.reasons).toHaveLength(1);
+    expect(result.reasons[0]).toMatch(/no items/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // checkEligibility — over budget
 // TEMPORARY ASSUMPTION (UNR-004): budget is merchandise subtotal only.
 // ---------------------------------------------------------------------------
@@ -290,6 +308,51 @@ describe("checkEligibility — unavailable variant", () => {
 });
 
 // ---------------------------------------------------------------------------
+// checkEligibility — item integrity (missing variant / mismatched productId)
+// ---------------------------------------------------------------------------
+
+describe("checkEligibility — item integrity", () => {
+  it("returns ineligible with a clear reason when the variantId is not in the map", () => {
+    const outfit: Outfit = {
+      id: "outfit-missing-variant",
+      requestId: "req-valid",
+      items: [
+        { productId: "p-001", variantId: "v-does-not-exist" },
+        { productId: "p-002", variantId: "v-002-32-tan" }, // valid
+      ],
+    };
+    const result = checkEligibility(outfit, VALID_REQUEST, SAMPLE_VARIANT_MAP);
+    expect(result.eligible).toBe(false);
+    expect(
+      result.reasons.some((r) => r.includes("v-does-not-exist"))
+    ).toBe(true);
+    // The reason should say the variant was not found, not crash.
+    expect(
+      result.reasons.some((r) => /not found/i.test(r))
+    ).toBe(true);
+  });
+
+  it("returns ineligible when a variant exists but belongs to a different product", () => {
+    // v-002-32-tan belongs to p-002, not p-001.
+    const outfit: Outfit = {
+      id: "outfit-mismatched",
+      requestId: "req-valid",
+      items: [
+        { productId: "p-001", variantId: "v-002-32-tan" }, // wrong product
+      ],
+    };
+    const result = checkEligibility(outfit, VALID_REQUEST, SAMPLE_VARIANT_MAP);
+    expect(result.eligible).toBe(false);
+    // Reason must name the variant and the actual owning product.
+    expect(
+      result.reasons.some(
+        (r) => r.includes("v-002-32-tan") && r.includes("p-002")
+      )
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // checkEligibility — item arrives after deadline
 // ---------------------------------------------------------------------------
 
@@ -328,31 +391,49 @@ describe("checkEligibility — late delivery", () => {
 // ---------------------------------------------------------------------------
 
 describe("checkEligibility — multiple violations", () => {
-  it("reports all violations in a single result", () => {
-    // out_of_stock variant + tight budget + jacket misses early deadline.
+  it("reports availability, budget, and deadline reasons all in a single result", () => {
+    /**
+     * Outfit:
+     *   v-001-lg-nvy  — out_of_stock (Shirt L/Navy, p-001, $89.00, delivers 2026-08-22)
+     *   v-003-md-chr  — in_stock     (Jacket M/Charcoal, p-003, $245.00, delivers 2026-09-02)
+     *
+     * Both variants are correctly matched to their products, so budget and
+     * delivery checks run alongside the availability check.
+     *
+     * Expected violations:
+     *   - Availability: v-001-lg-nvy is out_of_stock
+     *   - Budget (UNR-004 assumption): $89 + $245 = $334 > $50 budget
+     *   - Deadline: latest delivery 2026-09-02 > need-by 2026-08-25
+     */
     const multiViolationOutfit: Outfit = {
       id: "outfit-multi",
       requestId: "req-multi",
       items: [
         { productId: "p-001", variantId: "v-001-lg-nvy" }, // out_of_stock
-        { productId: "p-003", variantId: "v-003-md-chr" }, // delivers 2026-09-02
+        { productId: "p-003", variantId: "v-003-md-chr" }, // in_stock, late delivery
       ],
     };
     const strictRequest: ShoppingRequest = {
       id: "req-multi",
       brief: "Formal dinner",
-      budgetCents: 5000, // $50.00 — well under any subtotal
-      needByDate: "2026-08-25",
+      budgetCents: 5000,  // $50.00 — well under $334.00 subtotal
+      needByDate: "2026-08-25", // before jacket's 2026-09-02 delivery
     };
+
     const result = checkEligibility(
       multiViolationOutfit,
       strictRequest,
       SAMPLE_VARIANT_MAP
     );
+
     expect(result.eligible).toBe(false);
-    // At minimum the availability reason must be present.
-    expect(result.reasons.length).toBeGreaterThanOrEqual(1);
+
+    // All three violation categories must be present.
     expect(result.reasons.some((r) => /unavailable/i.test(r))).toBe(true);
+    expect(
+      result.reasons.some((r) => /subtotal/i.test(r) && /budget/i.test(r))
+    ).toBe(true);
+    expect(result.reasons.some((r) => r.includes("2026-09-02"))).toBe(true);
   });
 });
 
