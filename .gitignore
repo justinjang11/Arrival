@@ -44,3 +44,6 @@ next-env.d.ts
 # Replit prompt attachments — temporary upload references, not Arrival source files.
 # Intentional application assets must go in a tracked directory such as public/.
 /attached_assets/
+
+# Replit agent memory — not application source; managed by the agent between sessions.
+/.agents/

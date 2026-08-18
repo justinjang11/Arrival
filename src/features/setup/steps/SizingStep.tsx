@@ -1,31 +1,6 @@
-import type { LetterSize, ProfileDraft, ValidationErrors } from "../types";
+import type { ProfileDraft, ValidationErrors } from "../types";
 import { FormField } from "../FormField";
-
-// ---------------------------------------------------------------------------
-// Static option lists
-// ---------------------------------------------------------------------------
-
-/** Standard letter sizes for top-size and brand-letter-size dropdowns. */
-const LETTER_SIZES: readonly LetterSize[] = [
-  "XXS",
-  "XS",
-  "S",
-  "M",
-  "L",
-  "XL",
-  "XXL",
-  "XXXL",
-];
-
-/**
- * US shoe sizes from 3 through 18 in half-size increments.
- * Produces: "3", "3.5", "4", "4.5", …, "18" (31 values).
- * 0.5 is exactly representable in IEEE 754, so no floating-point drift.
- */
-const US_SHOE_SIZES: readonly string[] = Array.from({ length: 31 }, (_, i) => {
-  const v = 3 + i * 0.5;
-  return v % 1 === 0 ? String(Math.round(v)) : v.toFixed(1);
-});
+import { LETTER_SIZES, US_SHOE_SIZES } from "../sizingConstants";
 
 // ---------------------------------------------------------------------------
 // Local select component (native <select>, no added library)
@@ -167,12 +142,18 @@ export function SizingStep({ profile, onChange, errors }: Props) {
         />
 
         {/* Reference-brand size system + conditional size input */}
-        <fieldset className="flex flex-col gap-2 rounded-md border border-zinc-200 p-3">
+        <fieldset
+          className="flex flex-col gap-2 rounded-md border border-zinc-200 p-3"
+          aria-describedby={
+            errors.refSizeSystem ? "refSizeSystem-error" : undefined
+          }
+        >
           <legend className="px-1 text-sm font-medium text-zinc-700">
             Your size in that brand
           </legend>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Stack on mobile, two columns at sm */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700">
               <input
                 type="radio"
@@ -198,7 +179,11 @@ export function SizingStep({ profile, onChange, errors }: Props) {
           </div>
 
           {errors.refSizeSystem && (
-            <p role="alert" className="text-xs text-red-600">
+            <p
+              id="refSizeSystem-error"
+              role="alert"
+              className="text-xs text-red-600"
+            >
               {errors.refSizeSystem}
             </p>
           )}
@@ -210,7 +195,7 @@ export function SizingStep({ profile, onChange, errors }: Props) {
               value={profile.refLetterSize}
               onChange={(v) => onChange("refLetterSize", v)}
               error={errors.refLetterSize}
-              options={LETTER_SIZES as unknown as string[]}
+              options={LETTER_SIZES}
             />
           )}
 
@@ -237,7 +222,7 @@ export function SizingStep({ profile, onChange, errors }: Props) {
           value={profile.topLetterSize}
           onChange={(v) => onChange("topLetterSize", v)}
           error={errors.topLetterSize}
-          options={LETTER_SIZES as unknown as string[]}
+          options={LETTER_SIZES}
         />
 
         {/* Bottom sizing — waist and inseam */}

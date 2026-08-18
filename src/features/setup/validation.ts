@@ -26,6 +26,10 @@
  */
 
 import type { SetupCredentials, ProfileDraft, ValidationErrors } from "./types";
+import {
+  LETTER_SIZE_SET,
+  US_SHOE_SIZE_SET,
+} from "./sizingConstants";
 
 /**
  * Minimal email pattern — rejects obvious invalids without attempting full
@@ -103,6 +107,15 @@ export function validateProductPool(
   return {};
 }
 
+/**
+ * Returns true when n is a finite number (not NaN, not ±Infinity).
+ * Number() converts non-numeric strings to NaN, so this covers both
+ * bad strings and the special IEEE 754 non-finite values.
+ */
+function isFiniteNumber(n: number): boolean {
+  return !isNaN(n) && isFinite(n);
+}
+
 export function validateSizing(p: ProfileDraft): ValidationErrors {
   const e: ValidationErrors = {};
 
@@ -133,7 +146,7 @@ export function validateSizing(p: ProfileDraft): ValidationErrors {
   const weightTrimmed = p.weightLbs.trim();
   if (weightTrimmed !== "") {
     const weight = Number(weightTrimmed);
-    if (isNaN(weight) || weight <= 0) {
+    if (!isFiniteNumber(weight) || weight <= 0) {
       e.weightLbs = "Enter a positive number for weight, or leave blank.";
     }
   }
@@ -148,7 +161,8 @@ export function validateSizing(p: ProfileDraft): ValidationErrors {
   if (p.refSizeSystem !== "letter" && p.refSizeSystem !== "numeric") {
     e.refSizeSystem = "Choose a size system for this brand.";
   } else if (p.refSizeSystem === "letter") {
-    if (!p.refLetterSize) {
+    // Validate against the exact whitelist — non-empty is not sufficient.
+    if (!LETTER_SIZE_SET.has(p.refLetterSize)) {
       e.refLetterSize = "Select a letter size for this brand.";
     }
   } else {
@@ -158,15 +172,18 @@ export function validateSizing(p: ProfileDraft): ValidationErrors {
       e.refNumericSize = "Enter a numeric size for this brand.";
     } else {
       const n = Number(refNum);
-      if (isNaN(n) || n < 0) {
+      // Reject NaN, Infinity, -Infinity, and any value below 0.
+      if (!isFiniteNumber(n) || n < 0) {
         e.refNumericSize = "Enter a valid numeric size (0 or greater).";
       }
     }
   }
 
-  // --- Top size ---
+  // --- Top size (must be from the exact whitelist) ---
 
-  if (!p.topLetterSize) e.topLetterSize = "Select a top size.";
+  if (!LETTER_SIZE_SET.has(p.topLetterSize)) {
+    e.topLetterSize = "Select a top size.";
+  }
 
   // --- Waist and inseam ---
 
@@ -175,7 +192,8 @@ export function validateSizing(p: ProfileDraft): ValidationErrors {
     e.waistInches = "Waist measurement is required.";
   } else {
     const waist = Number(waistTrimmed);
-    if (isNaN(waist) || waist <= 0) {
+    // Reject NaN, Infinity, -Infinity, and non-positive values.
+    if (!isFiniteNumber(waist) || waist <= 0) {
       e.waistInches = "Enter a positive number for waist.";
     }
   }
@@ -185,20 +203,24 @@ export function validateSizing(p: ProfileDraft): ValidationErrors {
     e.inseamInches = "Inseam measurement is required.";
   } else {
     const inseam = Number(inseamTrimmed);
-    if (isNaN(inseam) || inseam <= 0) {
+    // Reject NaN, Infinity, -Infinity, and non-positive values.
+    if (!isFiniteNumber(inseam) || inseam <= 0) {
       e.inseamInches = "Enter a positive number for inseam.";
     }
   }
 
-  // --- Shoe sizes — conditional on productPool ---
+  // --- Shoe sizes — conditional on productPool; validated against exact whitelist ---
 
   const pool = p.productPool;
   if (pool === "menswear" || pool === "both") {
-    if (!p.mensShoeSizeUS) e.mensShoeSizeUS = "Select a men's US shoe size.";
+    if (!US_SHOE_SIZE_SET.has(p.mensShoeSizeUS)) {
+      e.mensShoeSizeUS = "Select a men's US shoe size.";
+    }
   }
   if (pool === "womenswear" || pool === "both") {
-    if (!p.womensShoeSizeUS)
+    if (!US_SHOE_SIZE_SET.has(p.womensShoeSizeUS)) {
       e.womensShoeSizeUS = "Select a women's US shoe size.";
+    }
   }
 
   return e;

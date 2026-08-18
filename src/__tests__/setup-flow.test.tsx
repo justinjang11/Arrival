@@ -23,6 +23,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SetupFlow } from "@/features/setup/SetupFlow";
+import { validateSizing } from "@/features/setup/validation";
+import type { ProfileDraft } from "@/features/setup/types";
 
 // ---------------------------------------------------------------------------
 // Fictional test fixtures — all values are invented for test purposes only
@@ -1209,5 +1211,216 @@ describe("SetupFlow — review structured display", () => {
     expect(screen.getByText(F.mensShoeSizeUS)).toBeInTheDocument();
     // Weight label present
     expect(screen.getByText(/^weight$/i)).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// Unit-test helpers for validateSizing
+// ===========================================================================
+
+/**
+ * Returns a fully valid ProfileDraft with menswear pool.
+ * Pass field overrides to test specific validation paths without
+ * navigating through the UI.
+ */
+function makeProfile(overrides: Partial<ProfileDraft> = {}): ProfileDraft {
+  return {
+    fullName: "Fictional Testperson",
+    phone: "+15550009876",
+    addressLine1: "42 Sample Street",
+    addressLine2: "",
+    city: "Testville",
+    stateOrProvince: "CA",
+    zipOrPostalCode: "90001",
+    country: "US",
+    productPool: "menswear",
+    heightFeet: "5",
+    heightInches: "9",
+    weightLbs: "155",
+    referenceBrand: "Fictional Brand Co",
+    refSizeSystem: "letter",
+    refLetterSize: "M",
+    refNumericSize: "",
+    topLetterSize: "M",
+    waistInches: "32",
+    inseamInches: "30",
+    mensShoeSizeUS: "10",
+    womensShoeSizeUS: "",
+    ...overrides,
+  };
+}
+
+// ===========================================================================
+// 21. Validation whitelist — non-finite values
+// ===========================================================================
+
+describe("validateSizing — non-finite numeric values rejected", () => {
+  it("rejects Infinity as a weight value", () => {
+    const errors = validateSizing(makeProfile({ weightLbs: "Infinity" }));
+    expect(errors.weightLbs).toBeDefined();
+    expect(errors.weightLbs).toMatch(/positive number for weight/i);
+  });
+
+  it("rejects -Infinity as a weight value", () => {
+    const errors = validateSizing(makeProfile({ weightLbs: "-Infinity" }));
+    expect(errors.weightLbs).toBeDefined();
+    expect(errors.weightLbs).toMatch(/positive number for weight/i);
+  });
+
+  it("rejects Infinity as a reference-brand numeric size", () => {
+    const errors = validateSizing(
+      makeProfile({ refSizeSystem: "numeric", refLetterSize: "", refNumericSize: "Infinity" })
+    );
+    expect(errors.refNumericSize).toBeDefined();
+    expect(errors.refNumericSize).toMatch(/valid numeric size/i);
+  });
+
+  it("rejects Infinity as a waist value", () => {
+    const errors = validateSizing(makeProfile({ waistInches: "Infinity" }));
+    expect(errors.waistInches).toBeDefined();
+    expect(errors.waistInches).toMatch(/positive number for waist/i);
+  });
+
+  it("rejects -Infinity as an inseam value", () => {
+    const errors = validateSizing(makeProfile({ inseamInches: "-Infinity" }));
+    expect(errors.inseamInches).toBeDefined();
+    expect(errors.inseamInches).toMatch(/positive number for inseam/i);
+  });
+
+  it("accepts a normal finite weight", () => {
+    const errors = validateSizing(makeProfile({ weightLbs: "155" }));
+    expect(errors.weightLbs).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// 22. Validation whitelist — letter-size values
+// ===========================================================================
+
+describe("validateSizing — unsupported letter-size values rejected", () => {
+  it("rejects an unsupported top size like XXXXL", () => {
+    const errors = validateSizing(makeProfile({ topLetterSize: "XXXXL" as never }));
+    expect(errors.topLetterSize).toBeDefined();
+    expect(errors.topLetterSize).toMatch(/select a top size/i);
+  });
+
+  it("rejects an empty-string top size", () => {
+    const errors = validateSizing(makeProfile({ topLetterSize: "" }));
+    expect(errors.topLetterSize).toBeDefined();
+  });
+
+  it("rejects an unsupported reference brand letter size", () => {
+    const errors = validateSizing(
+      makeProfile({ refSizeSystem: "letter", refLetterSize: "XXXXL" as never })
+    );
+    expect(errors.refLetterSize).toBeDefined();
+    expect(errors.refLetterSize).toMatch(/select a letter size/i);
+  });
+
+  it("accepts all eight valid letter sizes for top size", () => {
+    for (const size of ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const) {
+      const errors = validateSizing(makeProfile({ topLetterSize: size }));
+      expect(errors.topLetterSize).toBeUndefined();
+    }
+  });
+
+  it("accepts all eight valid letter sizes for reference brand", () => {
+    for (const size of ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const) {
+      const errors = validateSizing(
+        makeProfile({ refSizeSystem: "letter", refLetterSize: size })
+      );
+      expect(errors.refLetterSize).toBeUndefined();
+    }
+  });
+});
+
+// ===========================================================================
+// 23. Validation whitelist — shoe-size values
+// ===========================================================================
+
+describe("validateSizing — unsupported shoe-size values rejected", () => {
+  it("rejects a men's shoe size below the valid range (e.g. 2)", () => {
+    const errors = validateSizing(makeProfile({ mensShoeSizeUS: "2" }));
+    expect(errors.mensShoeSizeUS).toBeDefined();
+    expect(errors.mensShoeSizeUS).toMatch(/men.*shoe size/i);
+  });
+
+  it("rejects a men's shoe size above the valid range (e.g. 99)", () => {
+    const errors = validateSizing(makeProfile({ mensShoeSizeUS: "99" }));
+    expect(errors.mensShoeSizeUS).toBeDefined();
+  });
+
+  it("rejects a non-half-step men's shoe size (e.g. 10.3)", () => {
+    const errors = validateSizing(makeProfile({ mensShoeSizeUS: "10.3" }));
+    expect(errors.mensShoeSizeUS).toBeDefined();
+  });
+
+  it("rejects an empty men's shoe size", () => {
+    const errors = validateSizing(makeProfile({ mensShoeSizeUS: "" }));
+    expect(errors.mensShoeSizeUS).toBeDefined();
+  });
+
+  it("accepts whole-number US shoe sizes within range (3 and 18)", () => {
+    expect(validateSizing(makeProfile({ mensShoeSizeUS: "3" })).mensShoeSizeUS).toBeUndefined();
+    expect(validateSizing(makeProfile({ mensShoeSizeUS: "18" })).mensShoeSizeUS).toBeUndefined();
+  });
+
+  it("accepts half-step US shoe sizes (3.5 and 10.5)", () => {
+    expect(validateSizing(makeProfile({ mensShoeSizeUS: "3.5" })).mensShoeSizeUS).toBeUndefined();
+    expect(validateSizing(makeProfile({ mensShoeSizeUS: "10.5" })).mensShoeSizeUS).toBeUndefined();
+  });
+
+  it("rejects a women's shoe size outside the valid range", () => {
+    const errors = validateSizing(
+      makeProfile({
+        productPool: "womenswear",
+        mensShoeSizeUS: "",
+        womensShoeSizeUS: "2",
+      })
+    );
+    expect(errors.womensShoeSizeUS).toBeDefined();
+  });
+
+  it("accepts a valid women's shoe size within range", () => {
+    const errors = validateSizing(
+      makeProfile({
+        productPool: "womenswear",
+        mensShoeSizeUS: "",
+        womensShoeSizeUS: "8",
+      })
+    );
+    expect(errors.womensShoeSizeUS).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// 24. Reference-size-system error is programmatically associated (aria)
+// ===========================================================================
+
+describe("SetupFlow — ref size system error aria association", () => {
+  it("associates the size-system error with the fieldset via aria-describedby", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // Do not select a size system, then try to advance — triggers refSizeSystem error.
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: F.heightFeet } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: F.heightInches } });
+    fireEvent.change(screen.getByLabelText(/a brand you already shop/i), { target: { value: F.brand } });
+    // Intentionally leave refSizeSystem unselected
+    fireEvent.change(screen.getByLabelText(/^top size$/i), { target: { value: F.topLetterSize } });
+    fireEvent.change(screen.getByLabelText(/waist \(in\)/i), { target: { value: F.waistInches } });
+    fireEvent.change(screen.getByLabelText(/inseam \(in\)/i), { target: { value: F.inseamInches } });
+    fireEvent.change(screen.getByLabelText(/\bmen's us shoe size/i), { target: { value: F.mensShoeSizeUS } });
+    await clickContinue(user);
+
+    // Error element must have the expected id.
+    const errorEl = document.getElementById("refSizeSystem-error");
+    expect(errorEl).not.toBeNull();
+    expect(errorEl?.textContent).toMatch(/choose a size system/i);
+
+    // The fieldset must reference that error via aria-describedby.
+    const fieldset = errorEl?.closest("fieldset");
+    expect(fieldset).not.toBeNull();
+    expect(fieldset?.getAttribute("aria-describedby")).toBe("refSizeSystem-error");
   });
 });

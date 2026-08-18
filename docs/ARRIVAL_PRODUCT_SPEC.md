@@ -1,8 +1,8 @@
 # Arrival Product Specification
 
-**Version:** 0.4  
-**Status:** Pre-development  
-**Last updated:** 2026-08-18  
+**Version:** 0.4
+**Status:** Pre-development
+**Last updated:** 2026-08-18
 **Authority:** This document is the canonical product specification for Arrival. It overrides older notes, chat summaries, prototypes, and coding prompts when they conflict.
 
 ## 0. How to use this document
@@ -96,9 +96,9 @@ As of this version:
 
 - The GitHub repository is the canonical codebase.
 - A Next.js 16 application foundation exists with TypeScript, Tailwind CSS v4, ESLint, and Vitest.
-- The repository contains a minimal placeholder landing screen confirming the app is running. No substantive Arrival product interface has been built.
+- A non-persistent `/setup` prototype implements account-creation and profile-setup (MVP-ONB-001): credentials, delivery information, product-pool preference, and structured sizing (height in feet and inches, optional weight, reference brand and size, top-size letter dropdown, separate waist and inseam fields, conditional US shoe-size dropdowns). All form state lives in React `useState` only; no data is written or read from any storage backend.
 - Lint, tests, and the production build pass.
-- No database, authentication, retailer product data, recommendation system, checkout integration, or deployment exists yet.
+- Authentication, database or storage integration, the Wishbone taste-learning step (MVP-ONB-002), the main application interface, retailer product data, recommendation system, checkout integration, and deployment are not yet implemented.
 
 ---
 
