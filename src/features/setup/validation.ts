@@ -20,11 +20,6 @@
  *     A stricter rule (country code detection, carrier validation, etc.)
  *     should be applied when the spec defines one.
  *
- *   Sizing formats (height, weight, topSize, bottomSize, shoeSize):
- *     Free-text, non-empty values are accepted. The specification references
- *     standard letter sizing, inch sizing, and US shoe sizing as guidance
- *     but does not define exact validation rules or units at this stage.
- *
  *   Address validation:
  *     No international address format validation is applied. Required fields
  *     must be non-empty; address line 2 is always optional.
@@ -110,15 +105,102 @@ export function validateProductPool(
 
 export function validateSizing(p: ProfileDraft): ValidationErrors {
   const e: ValidationErrors = {};
-  // TEMPORARY ASSUMPTION: free-text, non-empty — see file-level comment.
-  if (!p.height.trim()) e.height = "Height is required.";
-  if (!p.weight.trim()) e.weight = "Weight is required.";
+
+  // --- Height ---
+
+  const feetTrimmed = p.heightFeet.trim();
+  if (feetTrimmed === "") {
+    e.heightFeet = "Feet is required.";
+  } else {
+    const feet = Number(feetTrimmed);
+    if (!Number.isInteger(feet) || feet < 1) {
+      e.heightFeet = "Enter a whole number of feet greater than zero.";
+    }
+  }
+
+  const inchesTrimmed = p.heightInches.trim();
+  if (inchesTrimmed === "") {
+    e.heightInches = "Inches is required.";
+  } else {
+    const inches = Number(inchesTrimmed);
+    if (!Number.isInteger(inches) || inches < 0 || inches > 11) {
+      e.heightInches = "Inches must be a whole number from 0 to 11.";
+    }
+  }
+
+  // --- Weight (optional) ---
+
+  const weightTrimmed = p.weightLbs.trim();
+  if (weightTrimmed !== "") {
+    const weight = Number(weightTrimmed);
+    if (isNaN(weight) || weight <= 0) {
+      e.weightLbs = "Enter a positive number for weight, or leave blank.";
+    }
+  }
+  // Empty weight: no error — weight is optional per MVP-ONB-001.
+
+  // --- Reference brand ---
+
   if (!p.referenceBrand.trim()) e.referenceBrand = "Reference brand is required.";
-  if (!p.referenceBrandSize.trim())
-    e.referenceBrandSize = "Reference brand size is required.";
-  if (!p.topSize.trim()) e.topSize = "Top size is required.";
-  if (!p.bottomSize.trim()) e.bottomSize = "Bottom size is required.";
-  if (!p.shoeSize.trim()) e.shoeSize = "Shoe size (US) is required.";
+
+  // --- Reference-brand size system ---
+
+  if (p.refSizeSystem !== "letter" && p.refSizeSystem !== "numeric") {
+    e.refSizeSystem = "Choose a size system for this brand.";
+  } else if (p.refSizeSystem === "letter") {
+    if (!p.refLetterSize) {
+      e.refLetterSize = "Select a letter size for this brand.";
+    }
+  } else {
+    // numeric
+    const refNum = p.refNumericSize.trim();
+    if (refNum === "") {
+      e.refNumericSize = "Enter a numeric size for this brand.";
+    } else {
+      const n = Number(refNum);
+      if (isNaN(n) || n < 0) {
+        e.refNumericSize = "Enter a valid numeric size (0 or greater).";
+      }
+    }
+  }
+
+  // --- Top size ---
+
+  if (!p.topLetterSize) e.topLetterSize = "Select a top size.";
+
+  // --- Waist and inseam ---
+
+  const waistTrimmed = p.waistInches.trim();
+  if (waistTrimmed === "") {
+    e.waistInches = "Waist measurement is required.";
+  } else {
+    const waist = Number(waistTrimmed);
+    if (isNaN(waist) || waist <= 0) {
+      e.waistInches = "Enter a positive number for waist.";
+    }
+  }
+
+  const inseamTrimmed = p.inseamInches.trim();
+  if (inseamTrimmed === "") {
+    e.inseamInches = "Inseam measurement is required.";
+  } else {
+    const inseam = Number(inseamTrimmed);
+    if (isNaN(inseam) || inseam <= 0) {
+      e.inseamInches = "Enter a positive number for inseam.";
+    }
+  }
+
+  // --- Shoe sizes — conditional on productPool ---
+
+  const pool = p.productPool;
+  if (pool === "menswear" || pool === "both") {
+    if (!p.mensShoeSizeUS) e.mensShoeSizeUS = "Select a men's US shoe size.";
+  }
+  if (pool === "womenswear" || pool === "both") {
+    if (!p.womensShoeSizeUS)
+      e.womensShoeSizeUS = "Select a women's US shoe size.";
+  }
+
   return e;
 }
 

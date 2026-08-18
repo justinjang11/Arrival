@@ -1,8 +1,8 @@
 # Arrival Product Specification
 
-**Version:** 0.3  
+**Version:** 0.4  
 **Status:** Pre-development  
-**Last updated:** 2026-08-13  
+**Last updated:** 2026-08-18  
 **Authority:** This document is the canonical product specification for Arrival. It overrides older notes, chat summaries, prototypes, and coding prompts when they conflict.
 
 ## 0. How to use this document
@@ -129,13 +129,17 @@ The setup must collect:
   - Menswear
   - Womenswear
   - Both
-- Height
-- Weight
+- Height, as separate Feet and Inches numeric fields
+- Weight in pounds (optional)
 - A reference brand the user already shops
-- The user's size in that reference brand
-- Top size using standard letter sizing where applicable
-- Bottom size using inch sizing where applicable
-- Shoe size in US sizing, with EU translation behind the scenes when required
+- Whether the reference brand uses a letter-size or numeric-size system
+- The user's size in that reference brand (letter selected from a dropdown; numeric entered as a number)
+- Top size, selected from a letter-size dropdown (XXS–XXXL; no default selection)
+- Waist and inseam as separate inch-measurement numeric fields
+- Shoe size(s) in US sizing, selected from a dropdown (3–18 in half-size increments):
+  - Menswear: men's US shoe size
+  - Womenswear: women's US shoe size
+  - Both: men's US shoe size and women's US shoe size, collected separately
 
 Helper copy for delivery information:
 
@@ -148,6 +152,11 @@ Helper copy for delivery information:
 - Payment information is not requested or stored.
 - Gender identity is not used as a substitute for product preference.
 - Menswear, womenswear, or both controls which product pools Arrival may recommend.
+- Height is collected as separate Feet and Inches numeric fields. Inches must be a whole number from 0 to 11.
+- Weight is optional; an empty weight field does not block progression.
+- Top size is selected from a letter-size dropdown (XXS–XXXL); no size is pre-selected.
+- Waist and inseam are collected as separate numeric fields measured in inches.
+- Shoe size(s) are selected from a US-size dropdown (3–18 in half-size increments). Menswear collects men's US shoe size; Womenswear collects women's US shoe size; Both collects both separately. No shoe size is pre-selected.
 - The user can later edit all contact, delivery, sizing, and product-preference information in Account.
 
 #### MVP-ONB-002: Wishbone taste learning
@@ -491,9 +500,9 @@ Account must let the user edit:
 - Email
 - Phone number
 - Shipping address
-- Height and weight
-- Reference brand and size
-- Top, bottom, and shoe sizing data
+- Height (feet and inches) and weight (optional, in pounds)
+- Reference brand and its letter or numeric size
+- Top size (letter-size dropdown), waist and inseam (numeric, in inches), and shoe size(s) (US-size dropdown, conditional on product preference)
 - Menswear, womenswear, or both product preference
 
 **Acceptance criteria**
@@ -970,6 +979,7 @@ This section does not prohibit the controlled, scheduled collection of public pr
 | 2026-07-28 | Use one GitHub repository with specialized services around one application. | Prevents competing app versions and lets UI, data, extraction, and checkout systems coexist. | Independent v0/Replit versions |
 | 2026-07-28 | Begin from the specification, not from an assumed existing prototype. | Arrival has not yet been coded in any form. | References to preserving an existing v0 implementation |
 | 2026-08-13 | Establish the canonical Next.js 16 foundation in the GitHub repository. | Milestone 0 requires a single source of truth with documented conventions before product interfaces are built. App Router, TypeScript, Tailwind CSS v4, ESLint, and Vitest are confirmed. Lint, tests, and production build pass. | N/A |
+| 2026-08-18 | Replace free-text biometric/sizing fields with structured controls. | Height (feet + inches), top size (letter dropdown), bottom (waist + inseam), and shoe sizes (US dropdown 3–18 half-step, conditional on product pool) are specific enough to drive size recommendations without ambiguity. Weight remains optional. Reference-brand size system (letter vs. numeric) must be explicitly chosen before the size field is shown — no silent default. | Free-text height, weight, topSize, bottomSize, shoeSize fields (v0.3) |
 | 2026-07-28 | Treat the Wishbone completion message as friendly flexible copy, not a required phrase. | Preserves the intended tone without hard-coding an early copy idea into the product contract. | Requiring the exact phrase “perfect! you’re all set” |
 | 2026-07-28 | Source MVP product records and photos through controlled collection of selected multibrand retailers' public listings and public APIs. | Makes the real-catalog pipeline implementable and clarifies that only live, indiscriminate, or access-control-bypassing extraction is excluded. | Treating all scraping or public-listing image collection as out of scope |
 

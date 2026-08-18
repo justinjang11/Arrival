@@ -12,7 +12,8 @@
  *     optional leading "+"; 7–15 digits required after stripping formatting.
  *     Not full E.164/libphonenumber validation. Must be updated when spec
  *     defines the final rule.
- *   - Sizing fields: free-text, non-empty accepted.
+ *   - Sizing fields are structured: feet/inches, optional weight, letter-size
+ *     dropdowns, separate waist/inseam, and conditional US shoe-size dropdowns.
  *
  * These assumptions are temporary prototyping behavior and must be updated
  * when the product specification resolves the open items.
@@ -39,13 +40,21 @@ const F = {
   state: "CA",
   zip: "90001",
   country: "US",
-  height: "5ft 9in",
-  weight: "155 lb",
+  // Structured height
+  heightFeet: "5",
+  heightInches: "9",
+  // Optional weight (numeric, lb)
+  weightLbs: "155",
+  // Reference brand
   brand: "Fictional Brand Co",
-  brandSize: "M",
-  topSize: "M",
-  bottomSize: "32×30",
-  shoeSize: "10",
+  refLetterSize: "M",
+  // Standard sizes (letter dropdown + separate waist/inseam)
+  topLetterSize: "M",
+  waistInches: "32",
+  inseamInches: "30",
+  // Shoe sizes (US, conditional on product pool)
+  mensShoeSizeUS: "10",
+  womensShoeSizeUS: "8",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -55,7 +64,7 @@ const F = {
 // deterministic, timing-independent field population. Their sole purpose is
 // to place fixture data in the form so that tests can reach a later step.
 // userEvent is reserved for interactions whose behavior is under test:
-// clicking Continue / Back / Submit and selecting radio buttons.
+// clicking Continue / Back / Submit and selecting product-pool radio buttons.
 // ---------------------------------------------------------------------------
 
 function fillCredentials() {
@@ -92,28 +101,54 @@ function fillDelivery() {
   });
 }
 
+/**
+ * Fill the sizing step with all structured fixture data.
+ *
+ * Shoe-size fields are conditional on productPool — the helper fills
+ * whichever dropdowns are currently visible in the DOM.
+ *
+ * The reference brand size system is selected (Letter size) before the
+ * brand letter-size dropdown appears. This is fixture setup, not a test
+ * of the radio interaction itself, so fireEvent.click is used.
+ */
 function fillSizing() {
-  fireEvent.change(screen.getByLabelText(/^height/i), {
-    target: { value: F.height },
+  // Height
+  fireEvent.change(screen.getByLabelText(/^feet$/i), {
+    target: { value: F.heightFeet },
   });
-  fireEvent.change(screen.getByLabelText(/^weight/i), {
-    target: { value: F.weight },
+  fireEvent.change(screen.getByLabelText(/^inches$/i), {
+    target: { value: F.heightInches },
   });
+  // Weight (optional — fill with a fixture value; separate tests verify it may be blank)
+  fireEvent.change(screen.getByLabelText(/weight \(lb\)/i), {
+    target: { value: F.weightLbs },
+  });
+  // Reference brand
   fireEvent.change(screen.getByLabelText(/a brand you already shop/i), {
     target: { value: F.brand },
   });
-  fireEvent.change(screen.getByLabelText(/your size in that brand/i), {
-    target: { value: F.brandSize },
+  // Reference brand size system — select "Letter size" radio then choose from dropdown
+  fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+  fireEvent.change(screen.getByLabelText(/brand letter size/i), {
+    target: { value: F.refLetterSize },
   });
-  fireEvent.change(screen.getByLabelText(/^top size/i), {
-    target: { value: F.topSize },
+  // Top size dropdown
+  fireEvent.change(screen.getByLabelText(/^top size$/i), {
+    target: { value: F.topLetterSize },
   });
-  fireEvent.change(screen.getByLabelText(/bottom size/i), {
-    target: { value: F.bottomSize },
+  // Bottom sizing
+  fireEvent.change(screen.getByLabelText(/waist \(in\)/i), {
+    target: { value: F.waistInches },
   });
-  fireEvent.change(screen.getByLabelText(/shoe size/i), {
-    target: { value: F.shoeSize },
+  fireEvent.change(screen.getByLabelText(/inseam \(in\)/i), {
+    target: { value: F.inseamInches },
   });
+  // Shoe sizes — fill whichever are visible based on current productPool
+  const menShoe = screen.queryByLabelText(/men.*us shoe size/i);
+  if (menShoe) fireEvent.change(menShoe, { target: { value: F.mensShoeSizeUS } });
+  const womenShoe = screen.queryByLabelText(/women.*us shoe size/i);
+  if (womenShoe)
+    fireEvent.change(womenShoe, { target: { value: F.womensShoeSizeUS } });
 }
 
 async function clickContinue(user: ReturnType<typeof userEvent.setup>) {
@@ -137,11 +172,24 @@ async function advanceTo_Products(user: ReturnType<typeof userEvent.setup>) {
   await clickContinue(user);
 }
 
-/** Advance from step 0 to step 3 (Sizing). */
+/** Advance from step 0 to step 3 (Sizing) with Menswear selected. */
 async function advanceTo_Sizing(user: ReturnType<typeof userEvent.setup>) {
   await advanceTo_Products(user);
   // No default selection — user must explicitly choose a product pool.
   await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
+  await clickContinue(user);
+}
+
+/**
+ * Advance from step 0 to step 3 (Sizing) with a specific product pool.
+ * Used by shoe-size conditional tests.
+ */
+async function advanceTo_SizingWithPool(
+  user: ReturnType<typeof userEvent.setup>,
+  pool: "menswear" | "womenswear" | "both"
+) {
+  await advanceTo_Products(user);
+  await user.click(screen.getByRole("radio", { name: new RegExp(`^${pool}$`, "i") }));
   await clickContinue(user);
 }
 
@@ -481,11 +529,11 @@ describe("SetupFlow — backward navigation preserves data", () => {
     // Go back to sizing
     await user.click(screen.getByRole("button", { name: /back/i }));
     expect(
-      (screen.getByLabelText(/^height/i) as HTMLInputElement).value
-    ).toBe(F.height);
+      (screen.getByLabelText(/^feet$/i) as HTMLInputElement).value
+    ).toBe(F.heightFeet);
     expect(
-      (screen.getByLabelText(/^weight/i) as HTMLInputElement).value
-    ).toBe(F.weight);
+      (screen.getByLabelText(/^inches$/i) as HTMLInputElement).value
+    ).toBe(F.heightInches);
   });
 });
 
@@ -774,5 +822,392 @@ describe("SetupFlow — no browser storage API", () => {
     fillCredentials();
     await clickContinue(user);
     expect(Storage.prototype.getItem).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// 14. Height — structured separate fields
+// ===========================================================================
+
+describe("SetupFlow — height structured fields", () => {
+  it("renders separate Feet and Inches numeric input fields", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    const feet = screen.getByLabelText(/^feet$/i);
+    const inches = screen.getByLabelText(/^inches$/i);
+    expect(feet).toBeInTheDocument();
+    expect(inches).toBeInTheDocument();
+    expect((feet as HTMLInputElement).type).toBe("number");
+    expect((inches as HTMLInputElement).type).toBe("number");
+  });
+
+  it("rejects inches below 0", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: "-1" } });
+    await clickContinue(user);
+    expect(screen.getByText(/0 to 11/i)).toBeInTheDocument();
+    // Still on sizing
+    expect(screen.getByLabelText(/^feet$/i)).toBeInTheDocument();
+  });
+
+  it("rejects inches above 11", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: "12" } });
+    await clickContinue(user);
+    expect(screen.getByText(/0 to 11/i)).toBeInTheDocument();
+  });
+
+  it("rejects a non-integer decimal in the Feet field", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // A decimal like "1.5" is numeric but not a whole number — Number.isInteger(1.5) === false.
+    // type="number" inputs sanitize non-numeric strings (e.g. "5ft") to "" in JSDOM/browsers;
+    // testing with a decimal verifies the integer-only constraint without relying on sanitization.
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: "1.5" } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: "9" } });
+    await clickContinue(user);
+    expect(screen.getByText(/whole number of feet/i)).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// 15. Weight — optional
+// ===========================================================================
+
+describe("SetupFlow — weight optional", () => {
+  it("allows weight to remain empty and still advances to review", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // Fill all sizing fields except weight
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: F.heightFeet } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: F.heightInches } });
+    // Intentionally leave Weight (lb) empty
+    fireEvent.change(screen.getByLabelText(/a brand you already shop/i), { target: { value: F.brand } });
+    fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+    fireEvent.change(screen.getByLabelText(/brand letter size/i), { target: { value: F.refLetterSize } });
+    fireEvent.change(screen.getByLabelText(/^top size$/i), { target: { value: F.topLetterSize } });
+    fireEvent.change(screen.getByLabelText(/waist \(in\)/i), { target: { value: F.waistInches } });
+    fireEvent.change(screen.getByLabelText(/inseam \(in\)/i), { target: { value: F.inseamInches } });
+    fireEvent.change(screen.getByLabelText(/\bmen's us shoe size/i), { target: { value: F.mensShoeSizeUS } });
+    await clickContinue(user);
+    // Must advance to review without a weight error
+    expect(screen.queryByText(/positive number for weight/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/review your information/i)).toBeInTheDocument();
+  });
+
+  it("rejects a provided weight that is not a positive number", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    fireEvent.change(screen.getByLabelText(/weight \(lb\)/i), { target: { value: "-5" } });
+    await clickContinue(user);
+    expect(screen.getByText(/positive number for weight/i)).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// 16. Bottom sizing — separate waist and inseam fields
+// ===========================================================================
+
+describe("SetupFlow — bottom sizing structured fields", () => {
+  it("renders separate Waist (in) and Inseam (in) numeric fields", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    const waist = screen.getByLabelText(/waist \(in\)/i);
+    const inseam = screen.getByLabelText(/inseam \(in\)/i);
+    expect(waist).toBeInTheDocument();
+    expect(inseam).toBeInTheDocument();
+    expect((waist as HTMLInputElement).type).toBe("number");
+    expect((inseam as HTMLInputElement).type).toBe("number");
+  });
+
+  it("requires both waist and inseam before advancing", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // Fill everything except bottom fields
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: F.heightFeet } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: F.heightInches } });
+    fireEvent.change(screen.getByLabelText(/a brand you already shop/i), { target: { value: F.brand } });
+    fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+    fireEvent.change(screen.getByLabelText(/brand letter size/i), { target: { value: F.refLetterSize } });
+    fireEvent.change(screen.getByLabelText(/^top size$/i), { target: { value: F.topLetterSize } });
+    // Intentionally leave waist and inseam empty
+    fireEvent.change(screen.getByLabelText(/\bmen's us shoe size/i), { target: { value: F.mensShoeSizeUS } });
+    await clickContinue(user);
+    expect(screen.getByText(/waist measurement is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/inseam measurement is required/i)).toBeInTheDocument();
+  });
+
+  it("rejects a negative number in the Waist field", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // Negative values are not valid waist measurements.
+    // Combined strings like "30x32" are sanitized to "" by type="number" inputs in JSDOM/browsers,
+    // so a negative number is used instead to verify the positive-value constraint reliably.
+    fireEvent.change(screen.getByLabelText(/waist \(in\)/i), { target: { value: "-5" } });
+    await clickContinue(user);
+    expect(screen.getByText(/positive number for waist/i)).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// 17. Top size — letter dropdown
+// ===========================================================================
+
+describe("SetupFlow — top size dropdown", () => {
+  it("is an unselected dropdown initially", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    const topSelect = screen.getByLabelText(/^top size$/i) as HTMLSelectElement;
+    expect(topSelect.tagName).toBe("SELECT");
+    expect(topSelect.value).toBe("");
+  });
+
+  it("contains all required letter-size options", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    const topSelect = screen.getByLabelText(/^top size$/i) as HTMLSelectElement;
+    const optionValues = Array.from(topSelect.options).map((o) => o.value);
+    for (const size of ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]) {
+      expect(optionValues).toContain(size);
+    }
+  });
+});
+
+// ===========================================================================
+// 18. Reference brand size system
+// ===========================================================================
+
+describe("SetupFlow — reference brand size system", () => {
+  it("has no size system selected initially", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    const letterRadio = screen.getByRole("radio", {
+      name: /^letter size$/i,
+    }) as HTMLInputElement;
+    const numericRadio = screen.getByRole("radio", {
+      name: /^numeric size$/i,
+    }) as HTMLInputElement;
+    expect(letterRadio.checked).toBe(false);
+    expect(numericRadio.checked).toBe(false);
+  });
+
+  it("shows the brand letter-size dropdown when Letter size is selected", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // Before selection: dropdown absent
+    expect(screen.queryByLabelText(/brand letter size/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+    // After selection: dropdown appears
+    const select = screen.getByLabelText(/brand letter size/i) as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    // Requires a selection before advancing
+    await clickContinue(user);
+    expect(screen.getByText(/select a letter size/i)).toBeInTheDocument();
+  });
+
+  it("shows the brand numeric-size field when Numeric size is selected", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // Before selection: numeric input absent
+    expect(screen.queryByLabelText(/brand numeric size/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /^numeric size$/i }));
+    // After selection: numeric input appears
+    const input = screen.getByLabelText(/brand numeric size/i) as HTMLInputElement;
+    expect(input.type).toBe("number");
+    // Requires a value before advancing
+    await clickContinue(user);
+    expect(screen.getByText(/enter a numeric size/i)).toBeInTheDocument();
+  });
+
+  it("switching from letter to numeric does not produce a hidden letter-size error", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    // Select letter, then switch to numeric
+    fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^numeric size$/i }));
+    // Letter size dropdown should no longer be visible
+    expect(screen.queryByLabelText(/brand letter size/i)).not.toBeInTheDocument();
+    // Fill everything else and click Continue — only the numeric field should error
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: F.heightFeet } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: F.heightInches } });
+    fireEvent.change(screen.getByLabelText(/a brand you already shop/i), { target: { value: F.brand } });
+    fireEvent.change(screen.getByLabelText(/^top size$/i), { target: { value: F.topLetterSize } });
+    fireEvent.change(screen.getByLabelText(/waist \(in\)/i), { target: { value: F.waistInches } });
+    fireEvent.change(screen.getByLabelText(/inseam \(in\)/i), { target: { value: F.inseamInches } });
+    fireEvent.change(screen.getByLabelText(/men.*us shoe size/i), { target: { value: F.mensShoeSizeUS } });
+    await clickContinue(user);
+    // Brand numeric size error (empty) should appear; no letter-size error should appear
+    expect(screen.getByText(/enter a numeric size/i)).toBeInTheDocument();
+    expect(screen.queryByText(/select a letter size/i)).not.toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// 19. Shoe sizes — conditional dropdowns
+// ===========================================================================
+
+describe("SetupFlow — shoe sizes conditional dropdowns", () => {
+  it("shows only Men's US shoe size for Menswear", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_SizingWithPool(user, "menswear");
+    expect(screen.getByLabelText(/\bmen's us shoe size/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/women.*us shoe size/i)).not.toBeInTheDocument();
+  });
+
+  it("shows only Women's US shoe size for Womenswear", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_SizingWithPool(user, "womenswear");
+    expect(screen.getByLabelText(/women.*us shoe size/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/\bmen's us shoe size/i)).not.toBeInTheDocument();
+  });
+
+  it("shows both Men's and Women's US shoe sizes for Both", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_SizingWithPool(user, "both");
+    expect(screen.getByLabelText(/\bmen's us shoe size/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/women.*us shoe size/i)).toBeInTheDocument();
+  });
+
+  it("shoe size selects are dropdowns containing whole and half sizes", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_SizingWithPool(user, "menswear");
+    const select = screen.getByLabelText(/\bmen's us shoe size/i) as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    const optionValues = Array.from(select.options).map((o) => o.value);
+    // Whole sizes
+    expect(optionValues).toContain("3");
+    expect(optionValues).toContain("10");
+    expect(optionValues).toContain("18");
+    // Half sizes
+    expect(optionValues).toContain("3.5");
+    expect(optionValues).toContain("10.5");
+    // No preselection
+    expect(select.value).toBe("");
+  });
+
+  it("menswear requires men's shoe size and blocks without it", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_SizingWithPool(user, "menswear");
+    // Fill everything except shoe
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: F.heightFeet } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: F.heightInches } });
+    fireEvent.change(screen.getByLabelText(/a brand you already shop/i), { target: { value: F.brand } });
+    fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+    fireEvent.change(screen.getByLabelText(/brand letter size/i), { target: { value: F.refLetterSize } });
+    fireEvent.change(screen.getByLabelText(/^top size$/i), { target: { value: F.topLetterSize } });
+    fireEvent.change(screen.getByLabelText(/waist \(in\)/i), { target: { value: F.waistInches } });
+    fireEvent.change(screen.getByLabelText(/inseam \(in\)/i), { target: { value: F.inseamInches } });
+    // Intentionally leave men's shoe empty
+    await clickContinue(user);
+    expect(screen.getByText(/select a men.*shoe size/i)).toBeInTheDocument();
+    expect(screen.queryByText(/women.*shoe size/i)).not.toBeInTheDocument();
+  });
+
+  it("womenswear requires women's shoe size and blocks without it", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_SizingWithPool(user, "womenswear");
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: F.heightFeet } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: F.heightInches } });
+    fireEvent.change(screen.getByLabelText(/a brand you already shop/i), { target: { value: F.brand } });
+    fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+    fireEvent.change(screen.getByLabelText(/brand letter size/i), { target: { value: F.refLetterSize } });
+    fireEvent.change(screen.getByLabelText(/^top size$/i), { target: { value: F.topLetterSize } });
+    fireEvent.change(screen.getByLabelText(/waist \(in\)/i), { target: { value: F.waistInches } });
+    fireEvent.change(screen.getByLabelText(/inseam \(in\)/i), { target: { value: F.inseamInches } });
+    // Intentionally leave women's shoe empty
+    await clickContinue(user);
+    expect(screen.getByText(/select a women.*shoe size/i)).toBeInTheDocument();
+    expect(screen.queryByText(/men.*us shoe size.*required/i)).not.toBeInTheDocument();
+  });
+
+  it("both pool requires separate men's and women's shoe sizes", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_SizingWithPool(user, "both");
+    fireEvent.change(screen.getByLabelText(/^feet$/i), { target: { value: F.heightFeet } });
+    fireEvent.change(screen.getByLabelText(/^inches$/i), { target: { value: F.heightInches } });
+    fireEvent.change(screen.getByLabelText(/a brand you already shop/i), { target: { value: F.brand } });
+    fireEvent.click(screen.getByRole("radio", { name: /^letter size$/i }));
+    fireEvent.change(screen.getByLabelText(/brand letter size/i), { target: { value: F.refLetterSize } });
+    fireEvent.change(screen.getByLabelText(/^top size$/i), { target: { value: F.topLetterSize } });
+    fireEvent.change(screen.getByLabelText(/waist \(in\)/i), { target: { value: F.waistInches } });
+    fireEvent.change(screen.getByLabelText(/inseam \(in\)/i), { target: { value: F.inseamInches } });
+    // Leave both shoe sizes empty
+    await clickContinue(user);
+    expect(screen.getByText(/select a men.*shoe size/i)).toBeInTheDocument();
+    expect(screen.getByText(/select a women.*shoe size/i)).toBeInTheDocument();
+  });
+
+  it("changing product preference to womenswear changes the required shoe fields", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    // Start with menswear selected
+    await advanceTo_SizingWithPool(user, "menswear");
+    // Men's shoe visible; women's shoe absent
+    expect(screen.getByLabelText(/\bmen's us shoe size/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/women.*us shoe size/i)).not.toBeInTheDocument();
+    // Navigate back to products and switch to womenswear
+    await user.click(screen.getByRole("button", { name: /back/i }));
+    await user.click(screen.getByRole("radio", { name: /^womenswear$/i }));
+    await clickContinue(user);
+    // Now women's shoe visible; men's shoe absent
+    expect(screen.getByLabelText(/women.*us shoe size/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/\bmen's us shoe size/i)).not.toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// 20. Review step — structured display format
+// ===========================================================================
+
+describe("SetupFlow — review structured display", () => {
+  it("displays height, weight, reference brand, bottom, and shoe size in structured format", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Sizing(user);
+    fillSizing();
+    await clickContinue(user); // advance to review
+
+    // Height: "5 ft 9 in"
+    expect(screen.getByText(`${F.heightFeet} ft ${F.heightInches} in`)).toBeInTheDocument();
+    // Weight: "155 lb"
+    expect(screen.getByText(`${F.weightLbs} lb`)).toBeInTheDocument();
+    // Reference brand with letter size: "Fictional Brand Co — Letter size M"
+    expect(
+      screen.getByText(`${F.brand} — Letter size ${F.refLetterSize}`)
+    ).toBeInTheDocument();
+    // Bottom: "32 in waist / 30 in inseam"
+    expect(
+      screen.getByText(`${F.waistInches} in waist / ${F.inseamInches} in inseam`)
+    ).toBeInTheDocument();
+    // Men's US shoe size (menswear pool)
+    expect(screen.getByText(F.mensShoeSizeUS)).toBeInTheDocument();
+    // Weight label present
+    expect(screen.getByText(/^weight$/i)).toBeInTheDocument();
   });
 });

@@ -38,13 +38,23 @@ const EMPTY_PROFILE: ProfileDraft = {
   zipOrPostalCode: "",
   country: "",
   productPool: null, // null = no selection; user must choose explicitly
-  height: "",
-  weight: "",
+  // Structured height
+  heightFeet: "",
+  heightInches: "",
+  // Optional weight
+  weightLbs: "",
+  // Reference brand and size
   referenceBrand: "",
-  referenceBrandSize: "",
-  topSize: "",
-  bottomSize: "",
-  shoeSize: "",
+  refSizeSystem: "",
+  refLetterSize: "",
+  refNumericSize: "",
+  // Standard sizes
+  topLetterSize: "",
+  waistInches: "",
+  inseamInches: "",
+  // Shoe sizes — conditional on productPool
+  mensShoeSizeUS: "",
+  womensShoeSizeUS: "",
 };
 
 // ---------------------------------------------------------------------------

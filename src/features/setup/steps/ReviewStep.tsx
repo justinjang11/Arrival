@@ -44,6 +44,39 @@ export function ReviewStep({ email, profile }: Props) {
   const poolDisplay =
     profile.productPool != null ? POOL_LABELS[profile.productPool] : "";
 
+  // Height — structured display.
+  const heightDisplay =
+    profile.heightFeet && profile.heightInches !== ""
+      ? `${profile.heightFeet} ft ${profile.heightInches} in`
+      : profile.heightFeet
+        ? `${profile.heightFeet} ft`
+        : "";
+
+  // Weight — only shown when provided.
+  const weightDisplay = profile.weightLbs.trim()
+    ? `${profile.weightLbs.trim()} lb`
+    : "";
+
+  // Reference brand + size — formatted according to the chosen system.
+  let refBrandDisplay = "";
+  if (profile.referenceBrand) {
+    if (profile.refSizeSystem === "letter" && profile.refLetterSize) {
+      refBrandDisplay = `${profile.referenceBrand} — Letter size ${profile.refLetterSize}`;
+    } else if (profile.refSizeSystem === "numeric" && profile.refNumericSize) {
+      refBrandDisplay = `${profile.referenceBrand} — Numeric size ${profile.refNumericSize}`;
+    } else {
+      refBrandDisplay = profile.referenceBrand;
+    }
+  }
+
+  // Bottom — waist and inseam together.
+  const bottomDisplay =
+    profile.waistInches && profile.inseamInches
+      ? `${profile.waistInches} in waist / ${profile.inseamInches} in inseam`
+      : "";
+
+  const pool = profile.productPool;
+
   return (
     <section aria-label="Review your information">
       <h2 className="mb-2 text-xl font-semibold text-zinc-900">
@@ -58,13 +91,24 @@ export function ReviewStep({ email, profile }: Props) {
         <Row label="Phone" value={profile.phone} />
         <Row label="Address" value={address} />
         <Row label="Products" value={poolDisplay} />
-        <Row label="Height" value={profile.height} />
-        <Row label="Weight" value={profile.weight} />
-        <Row label="Reference brand" value={profile.referenceBrand} />
-        <Row label="Brand size" value={profile.referenceBrandSize} />
-        <Row label="Top size" value={profile.topSize} />
-        <Row label="Bottom size" value={profile.bottomSize} />
-        <Row label="Shoe size (US)" value={profile.shoeSize} />
+        <Row label="Height" value={heightDisplay} />
+        {/* Weight is omitted when not provided (Row already handles empty values). */}
+        <Row label="Weight" value={weightDisplay} />
+        <Row label="Reference brand" value={refBrandDisplay} />
+        <Row label="Top size" value={profile.topLetterSize} />
+        <Row label="Bottom" value={bottomDisplay} />
+        {(pool === "menswear" || pool === "both") && (
+          <Row
+            label="Men's US shoe size"
+            value={profile.mensShoeSizeUS}
+          />
+        )}
+        {(pool === "womenswear" || pool === "both") && (
+          <Row
+            label="Women's US shoe size"
+            value={profile.womensShoeSizeUS}
+          />
+        )}
       </div>
     </section>
   );

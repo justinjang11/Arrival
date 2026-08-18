@@ -1,0 +1,3 @@
+- [type=number JSDOM sanitization](type-number-jsdom.md) — non-numeric strings ("5ft", "30x32") silently become "" in type="number" inputs; test with decimals/negatives instead
+- [Regex word-boundary for gendered labels](regex-gendered-labels.md) — /men.*shoe/i matches "Women's" because "Wo**men**"; use /\bmen's/i to prevent false positives
+- [allowedDevOrigins fix](alloweddevorigins.md) — next.config.ts reads REPLIT_DEV_DOMAIN, normalises to hostname, populates allowedDevOrigins; do not modify
