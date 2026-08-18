@@ -53,7 +53,7 @@ export function DeliveryStep({ profile, onChange, errors }: Props) {
           optional
           autoComplete="address-line2"
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             id="city"
             label="City"
@@ -71,7 +71,7 @@ export function DeliveryStep({ profile, onChange, errors }: Props) {
             autoComplete="address-level1"
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             id="zipOrPostalCode"
             label="ZIP or postal code"

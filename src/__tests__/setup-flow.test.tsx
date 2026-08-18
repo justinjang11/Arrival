@@ -8,7 +8,10 @@
  *
  * TEMPORARY ASSUMPTIONS reflected here:
  *   - Non-empty password is accepted (no format policy). Tests note this.
- *   - Phone format: any non-empty string accepted.
+ *   - Phone format: prototype rule — digits, spaces, (), -, . allowed; one
+ *     optional leading "+"; 7–15 digits required after stripping formatting.
+ *     Not full E.164/libphonenumber validation. Must be updated when spec
+ *     defines the final rule.
  *   - Sizing fields: free-text, non-empty accepted.
  *
  * These assumptions are temporary prototyping behavior and must be updated
@@ -102,7 +105,8 @@ async function advanceTo_Products(user: ReturnType<typeof userEvent.setup>) {
 /** Advance from step 0 to step 3 (Sizing). */
 async function advanceTo_Sizing(user: ReturnType<typeof userEvent.setup>) {
   await advanceTo_Products(user);
-  // Product pool already has a valid default; no interaction needed.
+  // No default selection — user must explicitly choose a product pool.
+  await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
   await clickContinue(user);
 }
 
@@ -431,7 +435,8 @@ describe("SetupFlow — complete flow with fictional data", () => {
     await fillDelivery(user);
     await clickContinue(user);
 
-    // Step 2: Products — default selection is sufficient
+    // Step 2: Products — must explicitly select (no default)
+    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
     await clickContinue(user);
 
     // Step 3: Sizing
@@ -453,6 +458,7 @@ describe("SetupFlow — complete flow with fictional data", () => {
     await clickContinue(user);
     await fillDelivery(user);
     await clickContinue(user);
+    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
     await clickContinue(user);
     await fillSizing(user);
     await clickContinue(user);
@@ -472,6 +478,7 @@ describe("SetupFlow — complete flow with fictional data", () => {
     await clickContinue(user);
     await fillDelivery(user);
     await clickContinue(user);
+    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
     await clickContinue(user);
     await fillSizing(user);
     await clickContinue(user);
@@ -508,11 +515,145 @@ describe("SetupFlow — password security", () => {
     await clickContinue(user);
     await fillDelivery(user);
     await clickContinue(user);
+    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
     await clickContinue(user);
     await fillSizing(user);
     await clickContinue(user);
     await clickSubmit(user);
     expect(screen.queryByText(F.password)).not.toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// Phone-number validation (correction)
+// ===========================================================================
+
+describe("SetupFlow — phone number validation", () => {
+  it('accepts "+1 (555) 000-9876" as a valid formatted number', async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Delivery(user);
+    await user.type(screen.getByLabelText(/full name/i), F.name);
+    await user.type(screen.getByLabelText(/phone number/i), "+1 (555) 000-9876");
+    await user.type(screen.getByLabelText(/address line 1/i), F.addressLine1);
+    await user.type(screen.getByLabelText(/city/i), F.city);
+    await user.type(screen.getByLabelText(/state or province/i), F.state);
+    await user.type(screen.getByLabelText(/zip or postal code/i), F.zip);
+    await user.type(screen.getByLabelText(/country/i), F.country);
+    await clickContinue(user);
+    // No phone error should appear; should advance to Products step
+    expect(screen.queryByText(/valid phone number/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/which products should arrival shop/i)
+    ).toBeInTheDocument();
+  });
+
+  it("rejects alphabetic text as a phone number", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Delivery(user);
+    await user.type(screen.getByLabelText(/phone number/i), "not-a-phone");
+    await clickContinue(user);
+    expect(screen.getByText(/valid phone number/i)).toBeInTheDocument();
+  });
+
+  it("rejects a phone number with too few digits", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Delivery(user);
+    await user.type(screen.getByLabelText(/phone number/i), "12345");
+    await clickContinue(user);
+    expect(screen.getByText(/valid phone number/i)).toBeInTheDocument();
+  });
+
+  it("shows an error message clearly asking for a valid phone number", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Delivery(user);
+    await user.type(screen.getByLabelText(/phone number/i), "abc");
+    await clickContinue(user);
+    const alerts = screen.getAllByRole("alert");
+    const phoneAlert = alerts.find((el) =>
+      /valid phone number/i.test(el.textContent ?? "")
+    );
+    expect(phoneAlert).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// Product-pool explicit selection (correction)
+// ===========================================================================
+
+describe("SetupFlow — product pool explicit selection", () => {
+  it("shows no product pool option selected initially", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Products(user);
+    const menswear = screen.getByRole("radio", {
+      name: /^menswear$/i,
+    }) as HTMLInputElement;
+    const womenswear = screen.getByRole("radio", {
+      name: /^womenswear$/i,
+    }) as HTMLInputElement;
+    const both = screen.getByRole("radio", {
+      name: /^both$/i,
+    }) as HTMLInputElement;
+    expect(menswear.checked).toBe(false);
+    expect(womenswear.checked).toBe(false);
+    expect(both.checked).toBe(false);
+  });
+
+  it("blocks Continue until the user explicitly chooses a product pool", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Products(user);
+    await clickContinue(user);
+    // Should show error and remain on Products step
+    expect(
+      screen.getByText(/choose a product preference/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/which products should arrival shop/i)
+    ).toBeInTheDocument();
+  });
+
+  it("allows all three valid product-pool choices to be explicitly selected", async () => {
+    // Single render: radio buttons are mutually exclusive, so clicking each
+    // option in sequence verifies all three are selectable.
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Products(user);
+
+    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
+    expect(
+      (screen.getByRole("radio", { name: /^menswear$/i }) as HTMLInputElement)
+        .checked
+    ).toBe(true);
+
+    await user.click(screen.getByRole("radio", { name: /^womenswear$/i }));
+    expect(
+      (screen.getByRole("radio", { name: /^womenswear$/i }) as HTMLInputElement)
+        .checked
+    ).toBe(true);
+
+    await user.click(screen.getByRole("radio", { name: /^both$/i }));
+    expect(
+      (screen.getByRole("radio", { name: /^both$/i }) as HTMLInputElement)
+        .checked
+    ).toBe(true);
+  });
+
+  it("retains the selected pool when navigating backward from Sizing", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceTo_Products(user);
+    await user.click(screen.getByRole("radio", { name: /^womenswear$/i }));
+    await clickContinue(user); // advance to Sizing
+    await user.click(screen.getByRole("button", { name: /back/i })); // back to Products
+    const womenswear = screen.getByRole("radio", {
+      name: /^womenswear$/i,
+    }) as HTMLInputElement;
+    expect(womenswear.checked).toBe(true);
   });
 });
 

@@ -52,8 +52,11 @@ export interface ProfileDraft {
    * Controls which product pools Arrival may recommend.
    * Must not be described as the user's gender or gender identity.
    * Label: "Which products should Arrival shop?"
+   *
+   * null = no selection made yet. The user must choose explicitly; the flow
+   * provides no default to ensure the preference is always deliberately set.
    */
-  productPool: "menswear" | "womenswear" | "both";
+  productPool: "menswear" | "womenswear" | "both" | null;
 
   // --- Sizing and fit (MVP-ONB-001) ---
   /**

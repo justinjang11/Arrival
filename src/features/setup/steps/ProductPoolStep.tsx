@@ -1,20 +1,20 @@
-import type { ProfileDraft } from "../types";
+import type { ProfileDraft, ValidationErrors } from "../types";
+
+type PoolOption = Exclude<ProfileDraft["productPool"], null>;
 
 interface Props {
   profile: ProfileDraft;
   onChange: (field: keyof ProfileDraft, value: string) => void;
-  // errors included for API consistency with other steps; product pool has no
-  // validation errors because it always has a valid default selection.
-  errors: Partial<Record<string, string>>;
+  errors: ValidationErrors;
 }
 
-const OPTIONS: { value: ProfileDraft["productPool"]; label: string }[] = [
+const OPTIONS: { value: PoolOption; label: string }[] = [
   { value: "menswear", label: "Menswear" },
   { value: "womenswear", label: "Womenswear" },
   { value: "both", label: "Both" },
 ];
 
-export function ProductPoolStep({ profile, onChange }: Props) {
+export function ProductPoolStep({ profile, onChange, errors }: Props) {
   return (
     <section aria-label="Product preference">
       <h2 className="mb-2 text-xl font-semibold text-zinc-900">
@@ -25,7 +25,7 @@ export function ProductPoolStep({ profile, onChange }: Props) {
         This controls which product pools Arrival may recommend. You can update
         it later in your profile.
       </p>
-      <fieldset>
+      <fieldset aria-describedby={errors.productPool ? "productPool-error" : undefined}>
         <legend className="sr-only">Product pool preference</legend>
         <div className="flex flex-col gap-3">
           {OPTIONS.map(({ value, label }) => (
@@ -51,6 +51,15 @@ export function ProductPoolStep({ profile, onChange }: Props) {
           ))}
         </div>
       </fieldset>
+      {errors.productPool && (
+        <p
+          id="productPool-error"
+          role="alert"
+          className="mt-2 text-xs text-red-600"
+        >
+          {errors.productPool}
+        </p>
+      )}
     </section>
   );
 }

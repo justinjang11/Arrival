@@ -1,0 +1,149 @@
+Review the current account/setup implementation and make only the corrections listed below. Do not rebuild or substantially redesign the flow.
+
+The existing architecture, five-step structure, route, components, and temporary React-state approach should remain intact.
+
+1. Implement meaningful prototype phone-number validation.
+
+The product specification requires a valid phone number. The current implementation accepts any nonempty string, including arbitrary letters, which does not satisfy that requirement.
+
+Implement a deterministic, international-tolerant prototype rule that:
+
+* permits digits;
+* permits common formatting characters such as spaces, parentheses, hyphens, and periods;
+* permits one optional `+` only at the beginning;
+* removes permitted formatting characters when counting digits;
+* requires between 7 and 15 digits;
+* rejects letters and unsupported characters.
+
+This remains prototype validation, not permanent international phone validation. Update the temporary-assumption comments and completion report accordingly.
+
+Add focused tests proving that:
+
+* `+1 (555) 000-9876` is accepted;
+* alphabetic text is rejected;
+* a number with too few digits is rejected;
+* the error clearly asks for a valid phone number.
+
+2. Require an explicit product-pool selection.
+
+The current profile state silently defaults to Menswear. This means the flow can complete without actually collecting the user’s preference.
+
+Change the initial product-pool value to an unselected state.
+
+The user must explicitly choose exactly one of:
+
+* Menswear
+* Womenswear
+* Both
+
+Do not add a fourth customer-facing choice.
+
+Update the TypeScript types and validation so:
+
+* Continue is blocked when no option is selected;
+* a clear error is associated with the radio group;
+* selecting an option clears the error;
+* the review step only receives a valid completed selection.
+
+Keep product preference distinct from gender identity.
+
+Add focused tests proving that:
+
+* no option is selected initially;
+* Continue is blocked until the user chooses an option;
+* all three valid choices can still be selected;
+* the selected option remains selected when navigating backward and forward.
+
+3. Make the field grids safe on narrow mobile screens.
+
+The address, height/weight, and three sizing fields currently use multiple columns at every screen width.
+
+Use the project’s existing responsive Tailwind utilities so these groups:
+
+* display in one column on narrow screens;
+* change to two or three columns only when sufficient width is available;
+* do not cause input overflow.
+
+Do not add a dependency or redesign the visual style.
+
+4. Correct the nonpersistent confirmation language.
+
+The confirmation currently says the profile information “has been submitted,” even though no backend receives or stores it.
+
+Replace that statement with truthful language indicating that the user has completed the profile portion of the prototype and that taste preferences remain next.
+
+Continue to state clearly that the information is not persisted and will disappear on refresh.
+
+Do not imply that a real account or stored profile exists.
+
+5. Repair and verify package-lock.json.
+
+An independent clean installation of the current committed branch fails because `package.json` and `package-lock.json` are out of sync. The failure includes missing or inconsistent `@emnapi` lockfile records.
+
+Regenerate the lockfile from the existing `package.json` without manually changing the application’s declared dependency versions.
+
+Use the project’s public npm registry configuration. If Replit’s network firewall inserts `package-firewall.replit.local` addresses into the regenerated lockfile, replace only those resolved-address prefixes with their equivalent public `https://registry.npmjs.org/` addresses after regeneration.
+
+Then run `npm ci` from the corrected lockfile. It must succeed.
+
+Do not rely only on `npm install`, because Replit’s existing `node_modules` directory can conceal an incomplete lockfile.
+
+6. Correct the test-count report.
+
+The current setup test file contains 31 tests, not 36.
+
+The accurate current baseline is:
+
+* 31 setup-flow tests;
+* 36 existing tests;
+* 67 total tests.
+
+Report the new accurate counts after adding the correction tests. Do not add meaningless tests merely to reach a particular number.
+
+7. Preserve all unaffected work.
+
+Do not modify:
+
+* `docs/ARRIVAL_PRODUCT_SPEC.md`;
+* the decision log;
+* the existing landing screen;
+* the controlled catalog;
+* the eligibility logic;
+* the existing eligibility tests;
+* the route location;
+* the five-step flow structure.
+
+Do not add:
+
+* new npm packages;
+* Supabase;
+* a database;
+* authentication;
+* browser persistence;
+* Wishbone;
+* final application navigation;
+* external APIs;
+* remote assets;
+* AI calls;
+* checkout or payment functionality;
+* deployment configuration.
+
+8. Run and report, in this order:
+
+* `npm ci`
+* `npm run lint`
+* `npm run test:ci`
+* `npm run build`
+* a search confirming zero `package-firewall.replit.local` occurrences in `package-lock.json`
+
+9. Before finishing:
+
+* list every file changed;
+* explain each correction;
+* report the accurate number of tests in each test file and in total;
+* explain the revised temporary phone-validation assumption;
+* confirm that no product preference is preselected;
+* confirm that the confirmation does not imply data was stored or transmitted;
+* confirm that a clean `npm ci` succeeds;
+* confirm that no real authentication or persistence was added;
+* do not publish, deploy, or push to GitHub.

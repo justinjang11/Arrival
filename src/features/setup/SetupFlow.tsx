@@ -37,7 +37,7 @@ const EMPTY_PROFILE: ProfileDraft = {
   stateOrProvince: "",
   zipOrPostalCode: "",
   country: "",
-  productPool: "menswear",
+  productPool: null, // null = no selection; user must choose explicitly
   height: "",
   weight: "",
   referenceBrand: "",
@@ -64,8 +64,8 @@ function ConfirmationView({ email }: { email: string }) {
         Profile setup complete
       </h2>
       <p className="mb-4 text-sm text-zinc-600">
-        Your profile information has been submitted
-        {email ? ` for ${email}` : ""}.
+        You&apos;ve completed the profile portion of the prototype
+        {email ? ` (${email})` : ""}. No data has been sent or stored anywhere.
       </p>
       <p className="text-sm text-zinc-500">
         The next step — taste preferences — will complete your Arrival setup.
@@ -115,7 +115,7 @@ export function SetupFlow() {
   };
 
   const updateProfile = (field: keyof ProfileDraft, value: string) => {
-    setProfile((prev) => ({ ...prev, [field]: value }));
+    setProfile((prev) => ({ ...prev, [field]: value }) as ProfileDraft);
     if (errors[field as keyof ValidationErrors]) {
       setErrors((prev) => {
         const next = { ...prev };
