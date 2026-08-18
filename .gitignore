@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Replit prompt attachments — temporary upload references, not Arrival source files.
+# Intentional application assets must go in a tracked directory such as public/.
+/attached_assets/

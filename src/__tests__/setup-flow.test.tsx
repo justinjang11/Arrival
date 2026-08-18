@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SetupFlow } from "@/features/setup/SetupFlow";
 
@@ -50,35 +50,70 @@ const F = {
 
 // ---------------------------------------------------------------------------
 // Navigation helpers — fill a step and advance
+//
+// fillCredentials, fillDelivery, and fillSizing use fireEvent.change for
+// deterministic, timing-independent field population. Their sole purpose is
+// to place fixture data in the form so that tests can reach a later step.
+// userEvent is reserved for interactions whose behavior is under test:
+// clicking Continue / Back / Submit and selecting radio buttons.
 // ---------------------------------------------------------------------------
 
-async function fillCredentials(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/email address/i), F.email);
-  await user.type(screen.getByLabelText(/^password/i), F.password);
+function fillCredentials() {
+  fireEvent.change(screen.getByLabelText(/email address/i), {
+    target: { value: F.email },
+  });
+  fireEvent.change(screen.getByLabelText(/^password/i), {
+    target: { value: F.password },
+  });
 }
 
-async function fillDelivery(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/full name/i), F.name);
-  await user.type(screen.getByLabelText(/phone number/i), F.phone);
-  await user.type(screen.getByLabelText(/address line 1/i), F.addressLine1);
+function fillDelivery() {
+  fireEvent.change(screen.getByLabelText(/full name/i), {
+    target: { value: F.name },
+  });
+  fireEvent.change(screen.getByLabelText(/phone number/i), {
+    target: { value: F.phone },
+  });
+  fireEvent.change(screen.getByLabelText(/address line 1/i), {
+    target: { value: F.addressLine1 },
+  });
   // address line 2 intentionally left empty — it is optional
-  await user.type(screen.getByLabelText(/city/i), F.city);
-  await user.type(screen.getByLabelText(/state or province/i), F.state);
-  await user.type(screen.getByLabelText(/zip or postal code/i), F.zip);
-  await user.type(screen.getByLabelText(/country/i), F.country);
+  fireEvent.change(screen.getByLabelText(/city/i), {
+    target: { value: F.city },
+  });
+  fireEvent.change(screen.getByLabelText(/state or province/i), {
+    target: { value: F.state },
+  });
+  fireEvent.change(screen.getByLabelText(/zip or postal code/i), {
+    target: { value: F.zip },
+  });
+  fireEvent.change(screen.getByLabelText(/country/i), {
+    target: { value: F.country },
+  });
 }
 
-async function fillSizing(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/^height/i), F.height);
-  await user.type(screen.getByLabelText(/^weight/i), F.weight);
-  await user.type(screen.getByLabelText(/a brand you already shop/i), F.brand);
-  await user.type(
-    screen.getByLabelText(/your size in that brand/i),
-    F.brandSize
-  );
-  await user.type(screen.getByLabelText(/^top size/i), F.topSize);
-  await user.type(screen.getByLabelText(/bottom size/i), F.bottomSize);
-  await user.type(screen.getByLabelText(/shoe size/i), F.shoeSize);
+function fillSizing() {
+  fireEvent.change(screen.getByLabelText(/^height/i), {
+    target: { value: F.height },
+  });
+  fireEvent.change(screen.getByLabelText(/^weight/i), {
+    target: { value: F.weight },
+  });
+  fireEvent.change(screen.getByLabelText(/a brand you already shop/i), {
+    target: { value: F.brand },
+  });
+  fireEvent.change(screen.getByLabelText(/your size in that brand/i), {
+    target: { value: F.brandSize },
+  });
+  fireEvent.change(screen.getByLabelText(/^top size/i), {
+    target: { value: F.topSize },
+  });
+  fireEvent.change(screen.getByLabelText(/bottom size/i), {
+    target: { value: F.bottomSize },
+  });
+  fireEvent.change(screen.getByLabelText(/shoe size/i), {
+    target: { value: F.shoeSize },
+  });
 }
 
 async function clickContinue(user: ReturnType<typeof userEvent.setup>) {
@@ -91,14 +126,14 @@ async function clickSubmit(user: ReturnType<typeof userEvent.setup>) {
 
 /** Advance from step 0 (Credentials) to step 1 (Delivery). */
 async function advanceTo_Delivery(user: ReturnType<typeof userEvent.setup>) {
-  await fillCredentials(user);
+  fillCredentials();
   await clickContinue(user);
 }
 
 /** Advance from step 0 to step 2 (Products). */
 async function advanceTo_Products(user: ReturnType<typeof userEvent.setup>) {
   await advanceTo_Delivery(user);
-  await fillDelivery(user);
+  fillDelivery();
   await clickContinue(user);
 }
 
@@ -113,7 +148,7 @@ async function advanceTo_Sizing(user: ReturnType<typeof userEvent.setup>) {
 /** Advance from step 0 to step 4 (Review). */
 async function advanceTo_Review(user: ReturnType<typeof userEvent.setup>) {
   await advanceTo_Sizing(user);
-  await fillSizing(user);
+  fillSizing();
   await clickContinue(user);
 }
 
@@ -211,7 +246,7 @@ describe("SetupFlow — credentials validation", () => {
   it("advances when both credentials fields are valid", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
     // Now on delivery step
     expect(screen.getByText(/delivery information/i)).toBeInTheDocument();
@@ -251,12 +286,24 @@ describe("SetupFlow — delivery validation", () => {
     render(<SetupFlow />);
     await advanceTo_Delivery(user);
     // Fill everything except phone
-    await user.type(screen.getByLabelText(/full name/i), F.name);
-    await user.type(screen.getByLabelText(/address line 1/i), F.addressLine1);
-    await user.type(screen.getByLabelText(/city/i), F.city);
-    await user.type(screen.getByLabelText(/state or province/i), F.state);
-    await user.type(screen.getByLabelText(/zip or postal code/i), F.zip);
-    await user.type(screen.getByLabelText(/country/i), F.country);
+    fireEvent.change(screen.getByLabelText(/full name/i), {
+      target: { value: F.name },
+    });
+    fireEvent.change(screen.getByLabelText(/address line 1/i), {
+      target: { value: F.addressLine1 },
+    });
+    fireEvent.change(screen.getByLabelText(/city/i), {
+      target: { value: F.city },
+    });
+    fireEvent.change(screen.getByLabelText(/state or province/i), {
+      target: { value: F.state },
+    });
+    fireEvent.change(screen.getByLabelText(/zip or postal code/i), {
+      target: { value: F.zip },
+    });
+    fireEvent.change(screen.getByLabelText(/country/i), {
+      target: { value: F.country },
+    });
     await clickContinue(user);
     expect(screen.getByText(/phone number is required/i)).toBeInTheDocument();
     // Still on delivery
@@ -268,12 +315,24 @@ describe("SetupFlow — delivery validation", () => {
     render(<SetupFlow />);
     await advanceTo_Delivery(user);
     // Fill everything except address line 1
-    await user.type(screen.getByLabelText(/full name/i), F.name);
-    await user.type(screen.getByLabelText(/phone number/i), F.phone);
-    await user.type(screen.getByLabelText(/city/i), F.city);
-    await user.type(screen.getByLabelText(/state or province/i), F.state);
-    await user.type(screen.getByLabelText(/zip or postal code/i), F.zip);
-    await user.type(screen.getByLabelText(/country/i), F.country);
+    fireEvent.change(screen.getByLabelText(/full name/i), {
+      target: { value: F.name },
+    });
+    fireEvent.change(screen.getByLabelText(/phone number/i), {
+      target: { value: F.phone },
+    });
+    fireEvent.change(screen.getByLabelText(/city/i), {
+      target: { value: F.city },
+    });
+    fireEvent.change(screen.getByLabelText(/state or province/i), {
+      target: { value: F.state },
+    });
+    fireEvent.change(screen.getByLabelText(/zip or postal code/i), {
+      target: { value: F.zip },
+    });
+    fireEvent.change(screen.getByLabelText(/country/i), {
+      target: { value: F.country },
+    });
     await clickContinue(user);
     expect(screen.getByText(/address is required/i)).toBeInTheDocument();
   });
@@ -282,12 +341,24 @@ describe("SetupFlow — delivery validation", () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
     await advanceTo_Delivery(user);
-    await user.type(screen.getByLabelText(/full name/i), F.name);
-    await user.type(screen.getByLabelText(/phone number/i), F.phone);
-    await user.type(screen.getByLabelText(/address line 1/i), F.addressLine1);
-    await user.type(screen.getByLabelText(/state or province/i), F.state);
-    await user.type(screen.getByLabelText(/zip or postal code/i), F.zip);
-    await user.type(screen.getByLabelText(/country/i), F.country);
+    fireEvent.change(screen.getByLabelText(/full name/i), {
+      target: { value: F.name },
+    });
+    fireEvent.change(screen.getByLabelText(/phone number/i), {
+      target: { value: F.phone },
+    });
+    fireEvent.change(screen.getByLabelText(/address line 1/i), {
+      target: { value: F.addressLine1 },
+    });
+    fireEvent.change(screen.getByLabelText(/state or province/i), {
+      target: { value: F.state },
+    });
+    fireEvent.change(screen.getByLabelText(/zip or postal code/i), {
+      target: { value: F.zip },
+    });
+    fireEvent.change(screen.getByLabelText(/country/i), {
+      target: { value: F.country },
+    });
     await clickContinue(user);
     expect(screen.getByText(/city is required/i)).toBeInTheDocument();
   });
@@ -297,7 +368,7 @@ describe("SetupFlow — delivery validation", () => {
     render(<SetupFlow />);
     await advanceTo_Delivery(user);
     // fillDelivery does not fill address line 2
-    await fillDelivery(user);
+    fillDelivery();
     await clickContinue(user);
     // Must advance without address line 2 error
     expect(
@@ -373,7 +444,7 @@ describe("SetupFlow — backward navigation preserves data", () => {
   it("retains credentials when navigating to delivery and back", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
     // On delivery step — go back
     await user.click(screen.getByRole("button", { name: /back/i }));
@@ -387,7 +458,7 @@ describe("SetupFlow — backward navigation preserves data", () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
     await advanceTo_Delivery(user);
-    await fillDelivery(user);
+    fillDelivery();
     await clickContinue(user);
     // On products — go back
     await user.click(screen.getByRole("button", { name: /back/i }));
@@ -405,7 +476,7 @@ describe("SetupFlow — backward navigation preserves data", () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
     await advanceTo_Sizing(user);
-    await fillSizing(user);
+    fillSizing();
     await clickContinue(user); // to review
     // Go back to sizing
     await user.click(screen.getByRole("button", { name: /back/i }));
@@ -428,11 +499,11 @@ describe("SetupFlow — complete flow with fictional data", () => {
     render(<SetupFlow />);
 
     // Step 0: Credentials
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
 
     // Step 1: Delivery
-    await fillDelivery(user);
+    fillDelivery();
     await clickContinue(user);
 
     // Step 2: Products — must explicitly select (no default)
@@ -440,7 +511,7 @@ describe("SetupFlow — complete flow with fictional data", () => {
     await clickContinue(user);
 
     // Step 3: Sizing
-    await fillSizing(user);
+    fillSizing();
     await clickContinue(user);
 
     // Step 4: Review — verify it renders, then submit
@@ -454,13 +525,13 @@ describe("SetupFlow — complete flow with fictional data", () => {
   it("does not reveal the final main application navigation after submission", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
-    await fillDelivery(user);
+    fillDelivery();
     await clickContinue(user);
     await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
     await clickContinue(user);
-    await fillSizing(user);
+    fillSizing();
     await clickContinue(user);
     await clickSubmit(user);
 
@@ -474,13 +545,13 @@ describe("SetupFlow — complete flow with fictional data", () => {
   it("makes clear the entire onboarding is not complete (Wishbone pending)", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
-    await fillDelivery(user);
+    fillDelivery();
     await clickContinue(user);
     await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
     await clickContinue(user);
-    await fillSizing(user);
+    fillSizing();
     await clickContinue(user);
     await clickSubmit(user);
 
@@ -511,13 +582,13 @@ describe("SetupFlow — password security", () => {
   it("does not display the password in the confirmation view", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
-    await fillDelivery(user);
+    fillDelivery();
     await clickContinue(user);
     await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
     await clickContinue(user);
-    await fillSizing(user);
+    fillSizing();
     await clickContinue(user);
     await clickSubmit(user);
     expect(screen.queryByText(F.password)).not.toBeInTheDocument();
@@ -533,13 +604,30 @@ describe("SetupFlow — phone number validation", () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
     await advanceTo_Delivery(user);
-    await user.type(screen.getByLabelText(/full name/i), F.name);
-    await user.type(screen.getByLabelText(/phone number/i), "+1 (555) 000-9876");
-    await user.type(screen.getByLabelText(/address line 1/i), F.addressLine1);
-    await user.type(screen.getByLabelText(/city/i), F.city);
-    await user.type(screen.getByLabelText(/state or province/i), F.state);
-    await user.type(screen.getByLabelText(/zip or postal code/i), F.zip);
-    await user.type(screen.getByLabelText(/country/i), F.country);
+    // Fixture fields populated with fireEvent; phone typed with userEvent
+    // because phone-format acceptance is the interaction under test here.
+    fireEvent.change(screen.getByLabelText(/full name/i), {
+      target: { value: F.name },
+    });
+    await user.type(
+      screen.getByLabelText(/phone number/i),
+      "+1 (555) 000-9876"
+    );
+    fireEvent.change(screen.getByLabelText(/address line 1/i), {
+      target: { value: F.addressLine1 },
+    });
+    fireEvent.change(screen.getByLabelText(/city/i), {
+      target: { value: F.city },
+    });
+    fireEvent.change(screen.getByLabelText(/state or province/i), {
+      target: { value: F.state },
+    });
+    fireEvent.change(screen.getByLabelText(/zip or postal code/i), {
+      target: { value: F.zip },
+    });
+    fireEvent.change(screen.getByLabelText(/country/i), {
+      target: { value: F.country },
+    });
     await clickContinue(user);
     // No phone error should appear; should advance to Products step
     expect(screen.queryByText(/valid phone number/i)).not.toBeInTheDocument();
@@ -665,9 +753,9 @@ describe("SetupFlow — no browser storage API", () => {
   it("does not call localStorage.setItem at any point during the flow", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
-    await fillDelivery(user);
+    fillDelivery();
     await clickContinue(user);
     expect(Storage.prototype.setItem).not.toHaveBeenCalled();
   });
@@ -675,7 +763,7 @@ describe("SetupFlow — no browser storage API", () => {
   it("does not call sessionStorage.setItem at any point during the flow", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
     expect(Storage.prototype.setItem).not.toHaveBeenCalled();
   });
@@ -683,7 +771,7 @@ describe("SetupFlow — no browser storage API", () => {
   it("does not call localStorage.getItem at any point during the flow", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    await fillCredentials(user);
+    fillCredentials();
     await clickContinue(user);
     expect(Storage.prototype.getItem).not.toHaveBeenCalled();
   });
