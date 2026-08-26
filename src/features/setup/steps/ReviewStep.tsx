@@ -13,6 +13,8 @@ interface Props {
   /** From credentials — only email is passed; password is intentionally excluded. */
   email: string;
   profile: ProfileDraft;
+  /** Optional heading override — Review is also shown when returning from Wishbone. */
+  helperText?: string;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -27,7 +29,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ReviewStep({ email, profile }: Props) {
+export function ReviewStep({ email, profile, helperText }: Props) {
   const address = [
     profile.addressLine1,
     profile.addressLine2,
@@ -83,7 +85,8 @@ export function ReviewStep({ email, profile }: Props) {
         Review your information
       </h2>
       <p className="mb-6 text-sm text-zinc-500">
-        Check your details before submitting. Your password is not shown.
+        {helperText ??
+          "Check your details, then continue to a few quick taste questions. Your password is not shown."}
       </p>
       <div className="rounded-lg border border-zinc-200 px-4">
         <Row label="Email" value={email} />

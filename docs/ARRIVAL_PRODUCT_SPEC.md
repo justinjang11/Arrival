@@ -1,8 +1,8 @@
 # Arrival Product Specification
 
-**Version:** 0.4
+**Version:** 0.5
 **Status:** Pre-development
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-26
 **Authority:** This document is the canonical product specification for Arrival. It overrides older notes, chat summaries, prototypes, and coding prompts when they conflict.
 
 ## 0. How to use this document
@@ -97,8 +97,9 @@ As of this version:
 - The GitHub repository is the canonical codebase.
 - A Next.js 16 application foundation exists with TypeScript, Tailwind CSS v4, ESLint, and Vitest.
 - A non-persistent `/setup` prototype implements account-creation and profile-setup (MVP-ONB-001): credentials, delivery information, product-pool preference, and structured sizing (height in feet and inches, optional weight, reference brand and size, top-size letter dropdown, separate waist and inseam fields, conditional US shoe-size dropdowns). All form state lives in React `useState` only; no data is written or read from any storage backend.
+- A non-persistent Wishbone taste-learning prototype (`src/features/wishbone/`) now follows profile setup in the same `/setup` journey. It presents exactly four fixed this-or-that rounds across four controlled dimensions — Minimal vs. Expressive, Tailored vs. Relaxed, Classic vs. Directional, and Clean vs. Textured — using sixteen temporary editorial reference images (see `docs/WISHBONE_IMAGE_SOURCES.md`). When product-pool preference is "both," a TEMPORARY PROTOTYPE ASSUMPTION alternates menswear/womenswear rounds in a fixed sequence to stay within the four-round maximum; this is not a permanent personalization rule. Selections exist only in React state for the lifetime of the page and do not yet satisfy MVP-ONB-002's requirement for a stored baseline taste profile — refreshing the page erases all Wishbone progress, exactly like the rest of the setup prototype.
 - Lint, tests, and the production build pass.
-- Authentication, database or storage integration, the Wishbone taste-learning step (MVP-ONB-002), the main application interface, retailer product data, recommendation system, checkout integration, and deployment are not yet implemented.
+- Authentication, database or storage integration, persistent Wishbone taste-profile storage, the main application interface, persistent application navigation, retailer product data, recommendation system, checkout integration, and deployment are not yet implemented. Full onboarding — including Wishbone — remains a non-persistent prototype, not a completed MVP milestone.
 
 ---
 
@@ -982,6 +983,8 @@ This section does not prohibit the controlled, scheduled collection of public pr
 | 2026-08-18 | Replace free-text biometric/sizing fields with structured controls. | Height (feet + inches), top size (letter dropdown), bottom (waist + inseam), and shoe sizes (US dropdown 3–18 half-step, conditional on product pool) are specific enough to drive size recommendations without ambiguity. Weight remains optional. Reference-brand size system (letter vs. numeric) must be explicitly chosen before the size field is shown — no silent default. | Free-text height, weight, topSize, bottomSize, shoeSize fields (v0.3) |
 | 2026-07-28 | Treat the Wishbone completion message as friendly flexible copy, not a required phrase. | Preserves the intended tone without hard-coding an early copy idea into the product contract. | Requiring the exact phrase “perfect! you’re all set” |
 | 2026-07-28 | Source MVP product records and photos through controlled collection of selected multibrand retailers' public listings and public APIs. | Makes the real-catalog pipeline implementable and clarifies that only live, indiscriminate, or access-control-bypassing extraction is excluded. | Treating all scraping or public-listing image collection as out of scope |
+| 2026-08-26 | Build a nonpersistent, four-round Wishbone taste-learning prototype directly after profile Review, using a fixed dimension set (Minimal/Expressive, Tailored/Relaxed, Classic/Directional, Clean/Textured) and sixteen temporary editorial reference images. | Lets the full setup journey (profile + taste quiz) be exercised end to end before any persistence layer exists, without exceeding MVP-ONB-002's three-to-four-round guidance. | Building Wishbone against a database or claiming the images are production-licensed |
+| 2026-08-26 | For product-pool "both," use a fixed, hardcoded menswear/womenswear-alternating round sequence as a TEMPORARY PROTOTYPE ASSUMPTION rather than any real personalization logic. | Keeps "both" within the four-round maximum while still surfacing imagery from each pool; a real ordering/personalization rule is deferred until Wishbone is implemented against real infrastructure. | Any implication that this ordering is a permanent product rule |
 
 ---
 

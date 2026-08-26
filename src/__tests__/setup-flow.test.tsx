@@ -157,8 +157,25 @@ async function clickContinue(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: /continue/i }));
 }
 
-async function clickSubmit(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /submit/i }));
+async function clickContinueToTasteQuiz(
+  user: ReturnType<typeof userEvent.setup>
+) {
+  await user.click(
+    screen.getByRole("button", { name: /continue to taste quiz/i })
+  );
+}
+
+/** Advance all five profile steps with fictional fixture data, then enter Wishbone. */
+async function advanceToWishbone(user: ReturnType<typeof userEvent.setup>) {
+  fillCredentials();
+  await clickContinue(user);
+  fillDelivery();
+  await clickContinue(user);
+  await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
+  await clickContinue(user);
+  fillSizing();
+  await clickContinue(user);
+  await clickContinueToTasteQuiz(user);
 }
 
 /** Advance from step 0 (Credentials) to step 1 (Delivery). */
@@ -544,7 +561,7 @@ describe("SetupFlow — backward navigation preserves data", () => {
 // ===========================================================================
 
 describe("SetupFlow — complete flow with fictional data", () => {
-  it("advances through all steps and shows a profile completion confirmation", async () => {
+  it("advances through all steps and Review leads into the Wishbone taste quiz, not the old confirmation", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
 
@@ -564,26 +581,21 @@ describe("SetupFlow — complete flow with fictional data", () => {
     fillSizing();
     await clickContinue(user);
 
-    // Step 4: Review — verify it renders, then submit
+    // Step 4: Review — verify it renders, then continue to the taste quiz
     expect(screen.getByText(/review your information/i)).toBeInTheDocument();
-    await clickSubmit(user);
+    await clickContinueToTasteQuiz(user);
 
-    // Confirmation must appear
-    expect(screen.getByText(/profile setup complete/i)).toBeInTheDocument();
+    // Wishbone must appear — not the old profile-only confirmation text.
+    expect(
+      screen.getByText(/which feels more like you/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/profile setup complete/i)).not.toBeInTheDocument();
   });
 
-  it("does not reveal the final main application navigation after submission", async () => {
+  it("does not reveal the final main application navigation after entering Wishbone", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    fillCredentials();
-    await clickContinue(user);
-    fillDelivery();
-    await clickContinue(user);
-    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
-    await clickContinue(user);
-    fillSizing();
-    await clickContinue(user);
-    await clickSubmit(user);
+    await advanceToWishbone(user);
 
     // MVP-ONB-002: main nav must be hidden until setup and Wishbone are complete
     expect(
@@ -592,21 +604,16 @@ describe("SetupFlow — complete flow with fictional data", () => {
     expect(screen.queryByText(/saved outfits/i)).not.toBeInTheDocument();
   });
 
-  it("makes clear the entire onboarding is not complete (Wishbone pending)", async () => {
+  it("clears the password from state before the Wishbone quiz begins", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    fillCredentials();
-    await clickContinue(user);
-    fillDelivery();
-    await clickContinue(user);
-    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
-    await clickContinue(user);
-    fillSizing();
-    await clickContinue(user);
-    await clickSubmit(user);
+    await advanceToWishbone(user);
 
-    // Confirmation should reference the next step (taste preferences / Wishbone)
-    expect(screen.getByText(/taste preferences/i)).toBeInTheDocument();
+    // Password must be gone from the DOM once Wishbone has started.
+    expect(screen.queryByText(F.password)).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/^password/i)
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -629,19 +636,57 @@ describe("SetupFlow — password security", () => {
     expect(screen.getByText(/password is not shown/i)).toBeInTheDocument();
   });
 
-  it("does not display the password in the confirmation view", async () => {
+  it("does not display the password once Wishbone begins", async () => {
     const user = userEvent.setup();
     render(<SetupFlow />);
-    fillCredentials();
-    await clickContinue(user);
-    fillDelivery();
-    await clickContinue(user);
-    await user.click(screen.getByRole("radio", { name: /^menswear$/i }));
-    await clickContinue(user);
-    fillSizing();
-    await clickContinue(user);
-    await clickSubmit(user);
+    await advanceToWishbone(user);
     expect(screen.queryByText(F.password)).not.toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// 13. Wishbone integration — Back-from-round-one and full completion journey
+// ===========================================================================
+
+describe("SetupFlow — Wishbone integration", () => {
+  it("returns to Review with the submitted email and profile data intact when Back is clicked on Wishbone round one", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceToWishbone(user);
+    expect(screen.getByText(/round 1 of 4/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /back/i }));
+
+    // Back to the profile Review screen — not a blank or reset step.
+    expect(screen.getByText(/review your information/i)).toBeInTheDocument();
+    expect(screen.getByText(F.email)).toBeInTheDocument();
+    expect(screen.getByText(F.name)).toBeInTheDocument();
+  });
+
+  it("completes the full journey end to end and shows the final summary with the submitted email", async () => {
+    const user = userEvent.setup();
+    render(<SetupFlow />);
+    await advanceToWishbone(user);
+
+    for (let i = 0; i < 4; i++) {
+      const optionButtons = screen.getAllByRole("button", { pressed: false });
+      await user.click(optionButtons[0]);
+      const label = i === 3 ? /finish setup/i : /^continue$/i;
+      await user.click(screen.getByRole("button", { name: label }));
+    }
+
+    expect(screen.getByText(/you.re all set\./i)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(F.email))).toBeInTheDocument();
+    // Four style-direction rows must be present in the summary.
+    expect(screen.getByText(/minimal vs\. expressive/i)).toBeInTheDocument();
+    expect(screen.getByText(/tailored vs\. relaxed/i)).toBeInTheDocument();
+    expect(screen.getByText(/classic vs\. directional/i)).toBeInTheDocument();
+    expect(screen.getByText(/clean vs\. textured/i)).toBeInTheDocument();
+    // Main app navigation must still be hidden on the final screen.
+    expect(
+      screen.queryByRole("navigation", { name: /main/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/saved outfits/i)).not.toBeInTheDocument();
   });
 });
 
