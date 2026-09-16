@@ -14,6 +14,7 @@
  */
 
 import { useState } from "react";
+import type { CompletedOnboarding } from "@/features/app-session/types";
 import type { SetupCredentials, ProfileDraft, ValidationErrors } from "./types";
 import { validateStep } from "./validation";
 import { ProgressIndicator } from "./ProgressIndicator";
@@ -82,7 +83,13 @@ type SetupPhase = "profile" | "wishbone" | "complete";
  * Structured so that profile form logic (everything except credentials) can
  * be reused by a future Account editing screen. Do not build that screen here.
  */
-export function SetupFlow() {
+interface SetupFlowProps {
+  onEnterArrival?: (completed: CompletedOnboarding) => void;
+}
+
+export function SetupFlow({
+  onEnterArrival = () => undefined,
+}: SetupFlowProps) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<SetupPhase>("profile");
   const [credentials, setCredentials] =
@@ -155,6 +162,16 @@ export function SetupFlow() {
     setPhase("complete");
   };
 
+  const handleEnterArrival = () => {
+    if (!wishboneProfile) return;
+
+    onEnterArrival({
+      email: credentials.email,
+      profile,
+      wishboneProfile,
+    });
+  };
+
   if (phase === "wishbone") {
     // productPool is guaranteed non-null here: validateProductPool blocks
     // advancement past the Products step (and therefore past Review) until
@@ -170,7 +187,13 @@ export function SetupFlow() {
   }
 
   if (phase === "complete" && wishboneProfile) {
-    return <WishboneCompletion email={credentials.email} profile={wishboneProfile} />;
+    return (
+      <WishboneCompletion
+        email={credentials.email}
+        profile={wishboneProfile}
+        onEnterArrival={handleEnterArrival}
+      />
+    );
   }
 
   return (

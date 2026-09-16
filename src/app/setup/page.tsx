@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SetupFlow } from "@/features/setup/SetupFlow";
+import { SetupEntry } from "@/features/setup/SetupEntry";
 
 export const metadata: Metadata = {
   title: "Set up Arrival",
@@ -12,5 +12,5 @@ export const metadata: Metadata = {
  * This route renders a fully client-side, non-persistent setup flow.
  */
 export default function SetupPage() {
-  return <SetupFlow />;
+  return <SetupEntry />;
 }

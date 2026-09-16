@@ -1,8 +1,8 @@
 # Arrival Product Specification
 
-**Version:** 0.5
+**Version:** 0.6
 **Status:** Pre-development
-**Last updated:** 2026-08-26
+**Last updated:** 2026-09-16
 **Authority:** This document is the canonical product specification for Arrival. It overrides older notes, chat summaries, prototypes, and coding prompts when they conflict.
 
 ## 0. How to use this document
@@ -98,8 +98,10 @@ As of this version:
 - A Next.js 16 application foundation exists with TypeScript, Tailwind CSS v4, ESLint, and Vitest.
 - A non-persistent `/setup` prototype implements account-creation and profile-setup (MVP-ONB-001): credentials, delivery information, product-pool preference, and structured sizing (height in feet and inches, optional weight, reference brand and size, top-size letter dropdown, separate waist and inseam fields, conditional US shoe-size dropdowns). All form state lives in React `useState` only; no data is written or read from any storage backend.
 - A non-persistent Wishbone taste-learning prototype (`src/features/wishbone/`) now follows profile setup in the same `/setup` journey. It presents exactly four fixed this-or-that rounds across four controlled dimensions — Minimal vs. Expressive, Tailored vs. Relaxed, Classic vs. Directional, and Clean vs. Textured — using sixteen temporary editorial reference images (see `docs/WISHBONE_IMAGE_SOURCES.md`). When product-pool preference is "both," a TEMPORARY PROTOTYPE ASSUMPTION alternates menswear/womenswear rounds in a fixed sequence to stay within the four-round maximum; this is not a permanent personalization rule. Selections exist only in React state for the lifetime of the page and do not yet satisfy MVP-ONB-002's requirement for a stored baseline taste profile — refreshing the page erases all Wishbone progress, exactly like the rest of the setup prototype.
+- After Wishbone completion, an explicit "Enter Arrival" action transfers the submitted email, completed profile, and four Wishbone selections into a typed application session held only in a root-level React provider, then opens `/home`. The session never contains the password and is intentionally erased on refresh.
+- A non-persistent post-onboarding application shell now provides guarded `/home`, `/saved-outfits`, and `/account` routes with the required three-item bottom navigation. Opening or refreshing these routes without the completed in-memory session redirects to `/setup`. Home provides the exact three-field request intake and stores an optional validated request only in React memory; it reports honestly that generation and retailer matching are not implemented. Saved Outfits shows an empty state without fabricated outfits. Account shows a read-only summary of the current profile and Wishbone selections.
 - Lint, tests, and the production build pass.
-- Authentication, database or storage integration, persistent Wishbone taste-profile storage, the main application interface, persistent application navigation, retailer product data, recommendation system, checkout integration, and deployment are not yet implemented. Full onboarding — including Wishbone — remains a non-persistent prototype, not a completed MVP milestone.
+- Authentication, database or durable storage integration, persistent Wishbone taste-profile or request storage, profile editing, outfit recommendations or generation, retailer product data or matching, saved-outfit functionality, checkout integration, analytics, and deployment are not yet implemented. The current setup and application shell are local non-persistent prototypes, not completed persistent MVP infrastructure.
 
 ---
 
@@ -985,6 +987,7 @@ This section does not prohibit the controlled, scheduled collection of public pr
 | 2026-07-28 | Source MVP product records and photos through controlled collection of selected multibrand retailers' public listings and public APIs. | Makes the real-catalog pipeline implementable and clarifies that only live, indiscriminate, or access-control-bypassing extraction is excluded. | Treating all scraping or public-listing image collection as out of scope |
 | 2026-08-26 | Build a nonpersistent, four-round Wishbone taste-learning prototype directly after profile Review, using a fixed dimension set (Minimal/Expressive, Tailored/Relaxed, Classic/Directional, Clean/Textured) and sixteen temporary editorial reference images. | Lets the full setup journey (profile + taste quiz) be exercised end to end before any persistence layer exists, without exceeding MVP-ONB-002's three-to-four-round guidance. | Building Wishbone against a database or claiming the images are production-licensed |
 | 2026-08-26 | For product-pool "both," use a fixed, hardcoded menswear/womenswear-alternating round sequence as a TEMPORARY PROTOTYPE ASSUMPTION rather than any real personalization logic. | Keeps "both" within the four-round maximum while still surfacing imagery from each pool; a real ordering/personalization rule is deferred until Wishbone is implemented against real infrastructure. | Any implication that this ordering is a permanent product rule |
+| 2026-09-16 | Use a root-level React-memory session for the temporary post-onboarding application shell; admit the user only after the explicit "Enter Arrival" action and redirect protected routes to `/setup` whenever that session is absent. | Allows client navigation among Home, Saved Outfits, and Account while preserving completed setup data without prematurely adding authentication or durable storage. A browser refresh intentionally erases the prototype session. | Treating the current shell as authenticated or persistent application infrastructure |
 
 ---
 

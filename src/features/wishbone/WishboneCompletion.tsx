@@ -1,9 +1,12 @@
+"use client";
+
 import { DIMENSION_LABELS, poleLabel } from "./wishboneData";
 import type { WishboneTasteProfile } from "./types";
 
 interface Props {
   email: string;
   profile: WishboneTasteProfile;
+  onEnterArrival?: () => void;
 }
 
 /**
@@ -12,7 +15,11 @@ interface Props {
  * Internal dimension/pole labels are only ever shown here — never during
  * the this-or-that rounds themselves (per product requirement).
  */
-export function WishboneCompletion({ email, profile }: Props) {
+export function WishboneCompletion({
+  email,
+  profile,
+  onEnterArrival = () => undefined,
+}: Props) {
   return (
     <div className="mx-auto max-w-lg px-6 py-16 text-center">
       <div className="mb-4 text-4xl" aria-hidden="true">
@@ -42,6 +49,14 @@ export function WishboneCompletion({ email, profile }: Props) {
           );
         })}
       </div>
+
+      <button
+        type="button"
+        onClick={onEnterArrival}
+        className="mb-5 w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-1"
+      >
+        Enter Arrival
+      </button>
 
       <p className="text-xs text-zinc-400">
         No information has been sent or stored anywhere. This nonpersistent
